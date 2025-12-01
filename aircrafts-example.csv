@@ -1,0 +1,9 @@
+registration,type,mtow_kg,seats,length_m,wingspan_m,height_m,operator,remarks
+F-HBNA,ATR72-600,22800,72,27.2,27.0,7.7,Air Côte d'Ivoire,Configuration 72 sièges
+TU-TSK,A320-214,78000,180,37.6,35.8,11.8,Air Côte d'Ivoire,Configuration 180 sièges
+TU-VAB,DHC-8-Q400,29300,78,32.8,28.4,8.3,Air Côte d'Ivoire,Turbopropulseur régional
+5N-BQR,B737-800,79010,189,39.5,35.8,12.5,Air Peace,Configuration haute densité
+9G-AEO,A319-112,75500,156,33.8,34.1,11.8,Asky Airlines,Configuration mixte
+ET-ATQ,B787-8,227930,270,56.7,60.1,17.0,Ethiopian Airlines,Long courrier
+SN-AIO,A330-223,233000,293,58.8,60.3,16.8,Brussels Airlines,Configuration biclasse
+F-WWBA,A380-841,575000,853,72.7,79.8,24.1,Airbus,Avion de démonstration

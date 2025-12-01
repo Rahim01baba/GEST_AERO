@@ -1,0 +1,90 @@
+[
+  {
+    "registration": "F-HBNA",
+    "type": "ATR72-600",
+    "mtow_kg": 22800,
+    "seats": 72,
+    "length_m": 27.2,
+    "wingspan_m": 27.0,
+    "height_m": 7.7,
+    "operator": "Air Côte d'Ivoire",
+    "remarks": "Configuration 72 sièges"
+  },
+  {
+    "registration": "TU-TSK",
+    "type": "A320-214",
+    "mtow_kg": 78000,
+    "seats": 180,
+    "length_m": 37.6,
+    "wingspan_m": 35.8,
+    "height_m": 11.8,
+    "operator": "Air Côte d'Ivoire",
+    "remarks": "Configuration 180 sièges"
+  },
+  {
+    "registration": "TU-VAB",
+    "type": "DHC-8-Q400",
+    "mtow_kg": 29300,
+    "seats": 78,
+    "length_m": 32.8,
+    "wingspan_m": 28.4,
+    "height_m": 8.3,
+    "operator": "Air Côte d'Ivoire",
+    "remarks": "Turbopropulseur régional"
+  },
+  {
+    "registration": "5N-BQR",
+    "type": "B737-800",
+    "mtow_kg": 79010,
+    "seats": 189,
+    "length_m": 39.5,
+    "wingspan_m": 35.8,
+    "height_m": 12.5,
+    "operator": "Air Peace",
+    "remarks": "Configuration haute densité"
+  },
+  {
+    "registration": "9G-AEO",
+    "type": "A319-112",
+    "mtow_kg": 75500,
+    "seats": 156,
+    "length_m": 33.8,
+    "wingspan_m": 34.1,
+    "height_m": 11.8,
+    "operator": "Asky Airlines",
+    "remarks": "Configuration mixte"
+  },
+  {
+    "registration": "ET-ATQ",
+    "type": "B787-8",
+    "mtow_kg": 227930,
+    "seats": 270,
+    "length_m": 56.7,
+    "wingspan_m": 60.1,
+    "height_m": 17.0,
+    "operator": "Ethiopian Airlines",
+    "remarks": "Long courrier"
+  },
+  {
+    "registration": "SN-AIO",
+    "type": "A330-223",
+    "mtow_kg": 233000,
+    "seats": 293,
+    "length_m": 58.8,
+    "wingspan_m": 60.3,
+    "height_m": 16.8,
+    "operator": "Brussels Airlines",
+    "remarks": "Configuration biclasse"
+  },
+  {
+    "registration": "F-WWBA",
+    "type": "A380-841",
+    "mtow_kg": 575000,
+    "seats": 853,
+    "length_m": 72.7,
+    "wingspan_m": 79.8,
+    "height_m": 24.1,
+    "operator": "Airbus",
+    "remarks": "Avion de démonstration"
+  }
+]
