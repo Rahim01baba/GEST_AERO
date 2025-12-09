@@ -31,7 +31,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .maybeSingle()
           setUser(data)
           if (data?.email) {
-            setUserRole(getUserRole(data.email))
+            const role = getUserRole(data.email)
+            role.isAdmin = data.role === 'ADMIN'
+            setUserRole(role)
           }
         }
         setLoading(false)
@@ -48,7 +50,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .maybeSingle()
           setUser(data)
           if (data?.email) {
-            setUserRole(getUserRole(data.email))
+            const role = getUserRole(data.email)
+            role.isAdmin = data.role === 'ADMIN'
+            setUserRole(role)
           }
         } else {
           setUser(null)

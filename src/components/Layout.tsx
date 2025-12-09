@@ -13,7 +13,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   if (!user) return <>{children}</>
 
   const canViewAirports = can('edit_airport')
-  const canViewUsers = user.role === 'ADMIN'
+  const canViewUsers = user.role === 'ADMIN' || userRole?.isAdmin
   const canViewInvoices = can('view_invoices')
   const canViewBillingSettings = can('edit_billing_settings')
 
@@ -47,7 +47,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
           <span style={{ fontSize: '14px', color: '#666' }}>
-            {user.full_name} ({userRole?.scope === 'global' ? 'DG' : userRole?.airport_code || ''})
+            {user.full_name} ({userRole?.isAdmin ? 'ADMIN' : userRole?.scope === 'global' ? 'DG' : userRole?.airport_code || ''})
           </span>
           <button onClick={handleSignOut} style={buttonStyle}>
             Déconnexion

@@ -1,10 +1,11 @@
 import { supabase } from './supabase'
 
 export interface UserRole {
-  role: 'ats' | 'aim' | 'cmd' | 'dedc' | 'diaa'
+  role: 'ats' | 'aim' | 'cmd' | 'dedc' | 'diaa' | 'admin'
   scope: 'local' | 'global'
   airport_code?: string
   email: string
+  isAdmin?: boolean
 }
 
 export function getUserRole(email: string): UserRole {
@@ -52,6 +53,10 @@ export type Action =
   | 'edit_billing_settings'
 
 export function can(action: Action, userRole: UserRole): boolean {
+  if (userRole.isAdmin) {
+    return true
+  }
+
   const { role, scope } = userRole
 
   switch (action) {
@@ -111,5 +116,5 @@ export async function getAirportIdForUser(email: string): Promise<string | null>
 }
 
 export function canViewAllAirports(userRole: UserRole): boolean {
-  return userRole.scope === 'global'
+  return userRole.isAdmin || userRole.scope === 'global'
 }
