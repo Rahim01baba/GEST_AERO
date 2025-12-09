@@ -6,10 +6,10 @@ import { useToast } from '../components/Toast'
 import { MovementModal } from '../components/MovementModal'
 
 const STATUS_OPTIONS = [
-  { value: 'Planned', label: 'Planned', emoji: '📋' },
+  { value: 'Planned', label: 'Planifié', emoji: '📋' },
   { value: 'Approche', label: 'Approche', emoji: '✈️' },
   { value: 'Posé', label: 'Posé', emoji: '🟢' },
-  { value: 'Enregistrement', label: 'Enregistrement', emoji: '🧾' },
+  { value: 'Enregistrement', label: 'Enreg.', emoji: '🧾' },
   { value: 'Décollé', label: 'Décollé', emoji: '🛫' },
   { value: 'Annulé', label: 'Annulé', emoji: '❌' },
   { value: 'Reporté', label: 'Reporté', emoji: '🔁' },

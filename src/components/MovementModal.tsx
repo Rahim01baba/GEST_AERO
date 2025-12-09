@@ -27,7 +27,6 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
   const [mtow, setMtow] = useState('')
   const [airlineCode, setAirlineCode] = useState('')
   const [airlineName, setAirlineName] = useState('')
-  const [standId, setStandId] = useState('')
   const [stands, setStands] = useState<Array<{id: string; name: string}>>([])
 
   const [createRotation, setCreateRotation] = useState(true)
@@ -35,6 +34,7 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
   const [arrDate, setArrDate] = useState('')
   const [arrTime, setArrTime] = useState('')
   const [originIata, setOriginIata] = useState('')
+  const [arrStandId, setArrStandId] = useState('')
   const [paxArrFull, setPaxArrFull] = useState('0')
   const [paxArrHalf, setPaxArrHalf] = useState('0')
   const [mailArrKg, setMailArrKg] = useState('0')
@@ -43,9 +43,11 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
   const [depDate, setDepDate] = useState('')
   const [depTime, setDepTime] = useState('')
   const [destinationIata, setDestinationIata] = useState('')
+  const [depStandId, setDepStandId] = useState('')
   const [paxDepFull, setPaxDepFull] = useState('0')
   const [paxDepHalf, setPaxDepHalf] = useState('0')
   const [paxTransit, setPaxTransit] = useState('0')
+  const [paxConnecting, setPaxConnecting] = useState('0')
   const [mailDepKg, setMailDepKg] = useState('0')
   const [freightDepKg, setFreightDepKg] = useState('0')
 
@@ -113,7 +115,6 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
     setMtow(movement.mtow_kg?.toString() || '')
     setAirlineCode(movement.airline_code || '')
     setAirlineName(movement.airline_name || '')
-    setStandId(movement.stand_id || '')
     setRotationId(movement.rotation_id)
     setIsLocked(movement.is_locked || false)
 
@@ -124,6 +125,7 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
       setArrDate(arrDateTime.toISOString().split('T')[0])
       setArrTime(arrDateTime.toTimeString().slice(0, 5))
       setOriginIata(movement.origin_iata || '')
+      setArrStandId(movement.stand_id || '')
       setPaxArrFull(movement.pax_arr_full?.toString() || '0')
       setPaxArrHalf(movement.pax_arr_half?.toString() || '0')
       setMailArrKg(movement.mail_arr_kg?.toString() || '0')
@@ -135,9 +137,11 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
       setDepDate(depDateTime.toISOString().split('T')[0])
       setDepTime(depDateTime.toTimeString().slice(0, 5))
       setDestinationIata(movement.destination_iata || '')
+      setDepStandId(movement.stand_id || '')
       setPaxDepFull(movement.pax_dep_full?.toString() || '0')
       setPaxDepHalf(movement.pax_dep_half?.toString() || '0')
       setPaxTransit(movement.pax_transit?.toString() || '0')
+      setPaxConnecting(movement.pax_connecting?.toString() || '0')
       setMailDepKg(movement.mail_dep_kg?.toString() || '0')
       setFreightDepKg(movement.freight_dep_kg?.toString() || '0')
     }
@@ -159,6 +163,7 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
           setArrDate(arrDateTime.toISOString().split('T')[0])
           setArrTime(arrDateTime.toTimeString().slice(0, 5))
           setOriginIata(linkedMovement.origin_iata || '')
+          setArrStandId(linkedMovement.stand_id || '')
           setPaxArrFull(linkedMovement.pax_arr_full?.toString() || '0')
           setPaxArrHalf(linkedMovement.pax_arr_half?.toString() || '0')
           setMailArrKg(linkedMovement.mail_arr_kg?.toString() || '0')
@@ -170,9 +175,11 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
           setDepDate(depDateTime.toISOString().split('T')[0])
           setDepTime(depDateTime.toTimeString().slice(0, 5))
           setDestinationIata(linkedMovement.destination_iata || '')
+          setDepStandId(linkedMovement.stand_id || '')
           setPaxDepFull(linkedMovement.pax_dep_full?.toString() || '0')
           setPaxDepHalf(linkedMovement.pax_dep_half?.toString() || '0')
           setPaxTransit(linkedMovement.pax_transit?.toString() || '0')
+          setPaxConnecting(linkedMovement.pax_connecting?.toString() || '0')
           setMailDepKg(linkedMovement.mail_dep_kg?.toString() || '0')
           setFreightDepKg(linkedMovement.freight_dep_kg?.toString() || '0')
         }
@@ -188,11 +195,11 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
     setMtow('')
     setAirlineCode('')
     setAirlineName('')
-    setStandId('')
     setCreateRotation(true)
     setArrDate('')
     setArrTime('')
     setOriginIata('')
+    setArrStandId('')
     setPaxArrFull('0')
     setPaxArrHalf('0')
     setMailArrKg('0')
@@ -200,9 +207,11 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
     setDepDate('')
     setDepTime('')
     setDestinationIata('')
+    setDepStandId('')
     setPaxDepFull('0')
     setPaxDepHalf('0')
     setPaxTransit('0')
+    setPaxConnecting('0')
     setMailDepKg('0')
     setFreightDepKg('0')
     setAutoFilled(false)
@@ -296,12 +305,13 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
           airline_name: airlineName || null,
           origin_iata: originIata || null,
           rotation_id: useRotationId,
-          stand_id: (standId && standId.trim() !== '') ? standId : null,
+          stand_id: (arrStandId && arrStandId.trim() !== '') ? arrStandId : null,
           pax_arr_full: parseInt(paxArrFull) || 0,
           pax_arr_half: parseInt(paxArrHalf) || 0,
           pax_dep_full: 0,
           pax_dep_half: 0,
           pax_transit: 0,
+          pax_connecting: 0,
           mail_arr_kg: parseFloat(mailArrKg) || 0,
           mail_dep_kg: 0,
           freight_arr_kg: parseFloat(freightArrKg) || 0,
@@ -344,12 +354,13 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
           airline_name: airlineName || null,
           destination_iata: destinationIata || null,
           rotation_id: useRotationId,
-          stand_id: (standId && standId.trim() !== '') ? standId : null,
+          stand_id: (depStandId && depStandId.trim() !== '') ? depStandId : null,
           pax_arr_full: 0,
           pax_arr_half: 0,
           pax_dep_full: parseInt(paxDepFull) || 0,
           pax_dep_half: parseInt(paxDepHalf) || 0,
           pax_transit: parseInt(paxTransit) || 0,
+          pax_connecting: parseInt(paxConnecting) || 0,
           mail_arr_kg: 0,
           mail_dep_kg: parseFloat(mailDepKg) || 0,
           freight_arr_kg: 0,
@@ -451,28 +462,6 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
 
               <div style={rowStyle}>
                 <div style={fieldStyle}>
-                  <label style={labelStyle}>Vol ARR</label>
-                  <input
-                    type="text"
-                    value={flightNoArr}
-                    onChange={(e) => setFlightNoArr(e.target.value)}
-                    placeholder="AF1234"
-                    style={compactInputStyle}
-                  />
-                </div>
-
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>Vol DEP</label>
-                  <input
-                    type="text"
-                    value={flightNoDep}
-                    onChange={(e) => setFlightNoDep(e.target.value)}
-                    placeholder="AF5678"
-                    style={compactInputStyle}
-                  />
-                </div>
-
-                <div style={fieldStyle}>
                   <label style={labelStyle}>
                     Immat *
                     {autoFilled && <span style={autoTagStyle}>auto</span>}
@@ -484,26 +473,10 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
                     onBlur={handleRegistrationBlur}
                     placeholder="F-HBNA"
                     required
-                    style={{...compactInputStyle, borderColor: !registration.trim() ? '#ef4444' : '#d1d5db', borderWidth: !registration.trim() ? '2px' : '1px'}}
+                    style={compactInputStyle}
                   />
                 </div>
 
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>Parking</label>
-                  <select
-                    value={standId}
-                    onChange={(e) => setStandId(e.target.value)}
-                    style={compactInputStyle}
-                  >
-                    <option value="">Non assigné</option>
-                    {stands.map(stand => (
-                      <option key={stand.id} value={stand.id}>{stand.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div style={rowStyle}>
                 <div style={fieldStyle}>
                   <label style={labelStyle}>
                     Type *
@@ -515,13 +488,13 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
                     onChange={(e) => setAircraftType(e.target.value)}
                     placeholder="A320"
                     required
-                    style={{...compactInputStyle, borderColor: !aircraftType.trim() ? '#ef4444' : '#d1d5db', borderWidth: !aircraftType.trim() ? '2px' : '1px'}}
+                    style={compactInputStyle}
                   />
                 </div>
 
                 <div style={fieldStyle}>
                   <label style={labelStyle}>
-                    MTOW
+                    MTOW (kg)
                     {autoFilled && <span style={autoTagStyle}>auto</span>}
                   </label>
                   <input
@@ -588,6 +561,33 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
 
                 <div style={rowStyle}>
                   <div style={fieldStyle}>
+                    <label style={labelStyle}>Vol ARR</label>
+                    <input
+                      type="text"
+                      value={flightNoArr}
+                      onChange={(e) => setFlightNoArr(e.target.value)}
+                      placeholder="AF1234"
+                      style={compactInputStyle}
+                    />
+                  </div>
+
+                  <div style={fieldStyle}>
+                    <label style={labelStyle}>Parking arrivée</label>
+                    <select
+                      value={arrStandId}
+                      onChange={(e) => setArrStandId(e.target.value)}
+                      style={compactInputStyle}
+                    >
+                      <option value="">Non assigné</option>
+                      {stands.map(stand => (
+                        <option key={stand.id} value={stand.id}>{stand.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={rowStyle}>
+                  <div style={fieldStyle}>
                     <label style={labelStyle}>Date</label>
                     <input
                       type="date"
@@ -606,18 +606,18 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
                       style={compactInputStyle}
                     />
                   </div>
-                </div>
 
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>Origine</label>
-                  <input
-                    type="text"
-                    value={originIata}
-                    onChange={(e) => setOriginIata(e.target.value.toUpperCase())}
-                    placeholder="CDG"
-                    maxLength={3}
-                    style={compactInputStyle}
-                  />
+                  <div style={fieldStyle}>
+                    <label style={labelStyle}>Origine</label>
+                    <input
+                      type="text"
+                      value={originIata}
+                      onChange={(e) => setOriginIata(e.target.value.toUpperCase())}
+                      placeholder="CDG"
+                      maxLength={3}
+                      style={compactInputStyle}
+                    />
+                  </div>
                 </div>
 
                 <div style={subSectionStyle}>
@@ -680,6 +680,33 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
 
                 <div style={rowStyle}>
                   <div style={fieldStyle}>
+                    <label style={labelStyle}>Vol DEP</label>
+                    <input
+                      type="text"
+                      value={flightNoDep}
+                      onChange={(e) => setFlightNoDep(e.target.value)}
+                      placeholder="AF5678"
+                      style={compactInputStyle}
+                    />
+                  </div>
+
+                  <div style={fieldStyle}>
+                    <label style={labelStyle}>Parking départ</label>
+                    <select
+                      value={depStandId}
+                      onChange={(e) => setDepStandId(e.target.value)}
+                      style={compactInputStyle}
+                    >
+                      <option value="">Non assigné</option>
+                      {stands.map(stand => (
+                        <option key={stand.id} value={stand.id}>{stand.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={rowStyle}>
+                  <div style={fieldStyle}>
                     <label style={labelStyle}>Date</label>
                     <input
                       type="date"
@@ -698,18 +725,18 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
                       style={compactInputStyle}
                     />
                   </div>
-                </div>
 
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>Dest.</label>
-                  <input
-                    type="text"
-                    value={destinationIata}
-                    onChange={(e) => setDestinationIata(e.target.value.toUpperCase())}
-                    placeholder="LHR"
-                    maxLength={3}
-                    style={compactInputStyle}
-                  />
+                  <div style={fieldStyle}>
+                    <label style={labelStyle}>Dest.</label>
+                    <input
+                      type="text"
+                      value={destinationIata}
+                      onChange={(e) => setDestinationIata(e.target.value.toUpperCase())}
+                      placeholder="LHR"
+                      maxLength={3}
+                      style={compactInputStyle}
+                    />
+                  </div>
                 </div>
 
                 <div style={subSectionStyle}>
@@ -741,6 +768,16 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
                         type="number"
                         value={paxTransit}
                         onChange={(e) => setPaxTransit(e.target.value)}
+                        min="0"
+                        style={compactInputStyle}
+                      />
+                    </div>
+                    <div style={fieldStyle}>
+                      <label style={labelStyle} title="Correspondance">Corresp.</label>
+                      <input
+                        type="number"
+                        value={paxConnecting}
+                        onChange={(e) => setPaxConnecting(e.target.value)}
                         min="0"
                         style={compactInputStyle}
                       />

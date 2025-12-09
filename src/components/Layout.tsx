@@ -32,14 +32,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
             Airport Manager
           </h1>
           <div style={{ display: 'flex', gap: '20px' }}>
-            <Link to="/dashboard" style={linkStyle}>Dashboard</Link>
-            <Link to="/movements" style={linkStyle}>Movements</Link>
+            <Link to="/dashboard" style={linkStyle}>Tableau de bord</Link>
+            <Link to="/movements" style={linkStyle}>Mouvements</Link>
             <Link to="/parking" style={linkStyle}>Parking</Link>
-            <Link to="/billing" style={linkStyle}>Billing</Link>
-            <Link to="/aircrafts" style={linkStyle}>Aircraft</Link>
-            {canViewAirports && <Link to="/airports" style={linkStyle}>Airports</Link>}
-            {canViewUsers && <Link to="/users" style={linkStyle}>Users</Link>}
-            {canViewUsers && <Link to="/billing-settings" style={linkStyle}>⚙️ Billing</Link>}
+            <Link to="/billing" style={linkStyle}>Facturation</Link>
+            <Link to="/aircrafts" style={linkStyle}>Aéronefs</Link>
+            {canViewAirports && <Link to="/airports" style={linkStyle}>Aéroports</Link>}
+            {canViewUsers && <Link to="/users" style={linkStyle}>Utilisateurs</Link>}
+            {canViewUsers && <Link to="/billing-settings" style={linkStyle}>⚙️ Facturation</Link>}
             <Link to="/audit" style={linkStyle}>Audit</Link>
           </div>
         </div>
@@ -48,7 +48,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             {user.full_name} ({user.role})
           </span>
           <button onClick={handleSignOut} style={buttonStyle}>
-            Sign Out
+            Déconnexion
           </button>
         </div>
       </nav>
