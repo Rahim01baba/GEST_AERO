@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const { user, signOut } = useAuth()
+  const { user, userRole, signOut, can } = useAuth()
   const navigate = useNavigate()
 
   const handleSignOut = async () => {
@@ -12,8 +12,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   if (!user) return <>{children}</>
 
-  const canViewAirports = user.role === 'ADMIN' || user.role === 'DED-C'
+  const canViewAirports = can('edit_airport')
   const canViewUsers = user.role === 'ADMIN'
+  const canViewInvoices = can('view_invoices')
+  const canViewBillingSettings = can('edit_billing_settings')
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
@@ -35,17 +37,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Link to="/dashboard" style={linkStyle}>Tableau de bord</Link>
             <Link to="/movements" style={linkStyle}>Mouvements</Link>
             <Link to="/parking" style={linkStyle}>Parking</Link>
-            <Link to="/billing" style={linkStyle}>Facturation</Link>
+            {canViewInvoices && <Link to="/billing" style={linkStyle}>Facturation</Link>}
             <Link to="/aircrafts" style={linkStyle}>Aéronefs</Link>
             {canViewAirports && <Link to="/airports" style={linkStyle}>Aéroports</Link>}
             {canViewUsers && <Link to="/users" style={linkStyle}>Utilisateurs</Link>}
-            {canViewUsers && <Link to="/billing-settings" style={linkStyle}>⚙️ Facturation</Link>}
+            {canViewBillingSettings && <Link to="/billing-settings" style={linkStyle}>⚙️ Facturation</Link>}
             <Link to="/audit" style={linkStyle}>Audit</Link>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
           <span style={{ fontSize: '14px', color: '#666' }}>
-            {user.full_name} ({user.role})
+            {user.full_name} ({userRole?.scope === 'global' ? 'DG' : userRole?.airport_code || ''})
           </span>
           <button onClick={handleSignOut} style={buttonStyle}>
             Déconnexion

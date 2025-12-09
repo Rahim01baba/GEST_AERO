@@ -7,7 +7,7 @@ import { useToast } from '../components/Toast'
 import { formatXOF } from '../lib/billing'
 
 export function Billing() {
-  const { user } = useAuth()
+  const { user, can, getAssignedAirportId } = useAuth()
   const navigate = useNavigate()
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
@@ -24,15 +24,27 @@ export function Billing() {
   const [filterMvtRegistration, setFilterMvtRegistration] = useState('')
   const [showUninvoicedSection, setShowUninvoicedSection] = useState(true)
   const [creatingInvoices, setCreatingInvoices] = useState<Set<string>>(new Set())
+  const [selectedAirportId, setSelectedAirportId] = useState<string>('')
 
   useEffect(() => {
-    loadInvoices()
-    loadUninvoicedMovements()
-  }, [user, filterStartDate, filterEndDate, filterRegistration, filterMvtStartDate, filterMvtEndDate, filterMvtRegistration])
+    const init = async () => {
+      const airportId = user?.airport_id || await getAssignedAirportId()
+      if (airportId) {
+        setSelectedAirportId(airportId)
+      }
+    }
+    init()
+  }, [user])
+
+  useEffect(() => {
+    if (selectedAirportId) {
+      loadInvoices()
+      loadUninvoicedMovements()
+    }
+  }, [selectedAirportId, filterStartDate, filterEndDate, filterRegistration, filterMvtStartDate, filterMvtEndDate, filterMvtRegistration])
 
   const loadInvoices = async () => {
-    if (!user || !user.airport_id) {
-      setError('Utilisateur non connecté ou sans aéroport assigné')
+    if (!selectedAirportId) {
       setLoading(false)
       return
     }
@@ -44,7 +56,7 @@ export function Billing() {
       let query = supabase
         .from('invoices')
         .select('*')
-        .eq('airport_id', user.airport_id)
+        .eq('airport_id', selectedAirportId)
 
       if (filterStartDate) {
         query = query.gte('created_at', new Date(filterStartDate).toISOString())
@@ -84,14 +96,14 @@ export function Billing() {
   }
 
   const loadUninvoicedMovements = async () => {
-    if (!user || !user.airport_id) return
+    if (!selectedAirportId) return
 
     setMovementsLoading(true)
     try {
       let query = supabase
         .from('aircraft_movements')
         .select('*')
-        .eq('airport_id', user.airport_id)
+        .eq('airport_id', selectedAirportId)
         .eq('is_invoiced', false)
         .eq('billable', true)
 
@@ -221,15 +233,15 @@ export function Billing() {
     URL.revokeObjectURL(url)
   }
 
-  const canEdit = user?.role === 'ADMIN' || user?.role === 'AIM' || user?.role === 'FIN'
-
   return (
     <Layout>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 600 }}>Facturation</h1>
         <div style={{ display: 'flex', gap: '12px' }}>
-          <button onClick={exportCSV} style={buttonStyle}>Export CSV</button>
-          {canEdit && (
+          {can('export_csv') && (
+            <button onClick={exportCSV} style={buttonStyle}>Export CSV</button>
+          )}
+          {can('create_proforma') && (
             <button
               onClick={() => navigate('/billing/new')}
               style={{ ...buttonStyle, backgroundColor: '#10b981' }}
@@ -240,7 +252,7 @@ export function Billing() {
         </div>
       </div>
 
-      {showUninvoicedSection && canEdit && (
+      {showUninvoicedSection && can('create_invoice') && (
         <>
           <div style={{
             backgroundColor: 'white',
@@ -427,7 +439,7 @@ export function Billing() {
         </>
       )}
 
-      {!showUninvoicedSection && canEdit && (
+      {!showUninvoicedSection && can('create_invoice') && (
         <div style={{ marginBottom: '16px' }}>
           <button
             onClick={() => setShowUninvoicedSection(true)}
@@ -598,7 +610,7 @@ export function Billing() {
                       >
                         View
                       </button>
-                      {invoice.status === 'DRAFT' && canEdit && (
+                      {invoice.status === 'DRAFT' && can('create_invoice') && (
                         <>
                           <button
                             onClick={() => updateInvoiceStatus(invoice.id, 'ISSUED')}
@@ -616,7 +628,7 @@ export function Billing() {
                           </button>
                         </>
                       )}
-                      {invoice.status === 'ISSUED' && canEdit && (
+                      {invoice.status === 'ISSUED' && can('create_invoice') && (
                         <>
                           <button
                             onClick={() => updateInvoiceStatus(invoice.id, 'PAID')}

@@ -20,7 +20,7 @@ interface MovementWithStand extends AircraftMovement {
 }
 
 export function Movements() {
-  const { user } = useAuth()
+  const { user, can, canViewAllAirports, getAssignedAirportId } = useAuth()
   const [movements, setMovements] = useState<MovementWithStand[]>([])
   const [loading, setLoading] = useState(true)
   const [filterStartDate, setFilterStartDate] = useState(() => {
@@ -51,11 +51,17 @@ export function Movements() {
   const { showToast, ToastComponent } = useToast()
 
   useEffect(() => {
-    if (user?.role === 'ADMIN') {
-      loadAirports()
-    } else if (user?.airport_id) {
-      setSelectedAirportId(user.airport_id)
+    const init = async () => {
+      if (canViewAllAirports()) {
+        loadAirports()
+      } else {
+        const airportId = user?.airport_id || await getAssignedAirportId()
+        if (airportId) {
+          setSelectedAirportId(airportId)
+        }
+      }
     }
+    init()
   }, [user])
 
   const loadAirports = async () => {
@@ -229,7 +235,7 @@ export function Movements() {
             <h1 style={{ margin: 0, fontSize: '32px', fontWeight: 600, color: '#1a1a1a' }}>
               Aircraft Movements
             </h1>
-            {user?.role === 'ADMIN' && airports.length > 0 && (
+            {canViewAllAirports() && airports.length > 0 && (
               <select
                 value={selectedAirportId}
                 onChange={(e) => setSelectedAirportId(e.target.value)}
@@ -251,18 +257,22 @@ export function Movements() {
             )}
           </div>
           <div style={{ display: 'flex', gap: '12px' }}>
-            <button
-              onClick={() => {
-                setEditMovementId(null)
-                setIsModalOpen(true)
-              }}
-              style={{...buttonStyle, backgroundColor: '#3b82f6'}}
-            >
-              + Créer
-            </button>
-            <button onClick={exportCSV} style={{...buttonStyle, backgroundColor: '#10b981'}}>
-              📄 Export CSV
-            </button>
+            {can('create_movements') && (
+              <button
+                onClick={() => {
+                  setEditMovementId(null)
+                  setIsModalOpen(true)
+                }}
+                style={{...buttonStyle, backgroundColor: '#3b82f6'}}
+              >
+                + Créer
+              </button>
+            )}
+            {can('export_csv') && (
+              <button onClick={exportCSV} style={{...buttonStyle, backgroundColor: '#10b981'}}>
+                📄 Export CSV
+              </button>
+            )}
           </div>
         </div>
 
