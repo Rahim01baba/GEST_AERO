@@ -92,11 +92,17 @@ export interface AircraftMovement {
   pax_dep_full: number
   pax_dep_half: number
   pax_transit: number
+  pax_connecting: number
+  pax_connecting_full?: number
+  pax_connecting_half?: number
   mail_arr_kg: number
   mail_dep_kg: number
   freight_arr_kg: number
   freight_dep_kg: number
   is_invoiced: boolean
+  is_locked?: boolean
+  traffic_type: string | null
+  remarks?: string | null
   created_at: string
   updated_at: string
 }
