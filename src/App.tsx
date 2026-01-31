@@ -4,13 +4,13 @@ import { Login } from './pages/Login'
 import { Dashboard } from './pages/Dashboard'
 import { Movements } from './pages/Movements'
 import { Parking } from './pages/Parking'
-import { Billing } from './pages/Billing'
+import { BillingNew } from './pages/BillingNew'
 import { BillingEditor } from './pages/BillingEditor'
 import { Aircrafts } from './pages/Aircrafts'
 import { AircraftEditor } from './pages/AircraftEditor'
 import { Airports } from './pages/Airports'
 import { AirportEditor } from './pages/AirportEditor'
-import { Users } from './pages/Users'
+import { UsersNew } from './pages/UsersNew'
 import { Audit } from './pages/Audit'
 import { BillingSettings } from './pages/BillingSettings'
 
@@ -47,7 +47,7 @@ function AppRoutes() {
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/movements" element={<ProtectedRoute><Movements /></ProtectedRoute>} />
       <Route path="/parking" element={<ProtectedRoute><Parking /></ProtectedRoute>} />
-      <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
+      <Route path="/billing" element={<ProtectedRoute><BillingNew /></ProtectedRoute>} />
       <Route path="/billing/new" element={<ProtectedRoute><BillingEditor mode="create" /></ProtectedRoute>} />
       <Route path="/billing/:id" element={<ProtectedRoute><BillingEditor mode="edit" /></ProtectedRoute>} />
       <Route path="/aircrafts" element={<ProtectedRoute><Aircrafts /></ProtectedRoute>} />
@@ -56,7 +56,7 @@ function AppRoutes() {
       <Route path="/airports" element={<ProtectedRoute><Airports /></ProtectedRoute>} />
       <Route path="/airports/new" element={<ProtectedRoute><AirportEditor /></ProtectedRoute>} />
       <Route path="/airports/:id" element={<ProtectedRoute><AirportEditor /></ProtectedRoute>} />
-      <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
+      <Route path="/users" element={<ProtectedRoute><UsersNew /></ProtectedRoute>} />
       <Route path="/audit" element={<ProtectedRoute><Audit /></ProtectedRoute>} />
       <Route path="/billing-settings" element={<ProtectedRoute><BillingSettings /></ProtectedRoute>} />
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
