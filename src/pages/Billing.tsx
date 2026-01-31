@@ -119,7 +119,7 @@ export function Billing() {
         query = query.ilike('registration', `%${filterMvtRegistration.trim()}%`)
       }
 
-      query = query.order('scheduled_time', { ascending: false }).limit(100)
+      query = query.order('scheduled_time', { ascending: true }).limit(100)
 
       const { data, error } = await query
 

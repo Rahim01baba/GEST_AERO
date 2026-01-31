@@ -51,7 +51,7 @@ export function Dashboard() {
     let recentMovementsQuery = supabase
       .from('aircraft_movements')
       .select('id, flight_number, registration, aircraft_type, movement_type, scheduled_time, status, stand_id, stands(name), origin_iata, destination_iata')
-      .order('scheduled_time', { ascending: false })
+      .order('scheduled_time', { ascending: true })
       .limit(10)
 
     let invoicesQuery = supabase

@@ -66,8 +66,23 @@ export function InvoiceEditorModal({ isOpen, onClose, onSuccess, movementId, air
 
       if (error) throw error
 
+      let finalMtow = data.mtow_kg
+
+      if (!finalMtow && data.registration) {
+        const { data: aircraftData } = await supabase
+          .from('aircrafts')
+          .select('mtow_kg')
+          .eq('registration', data.registration)
+          .maybeSingle()
+
+        if (aircraftData?.mtow_kg) {
+          finalMtow = aircraftData.mtow_kg
+        }
+      }
+
       const movementData = {
         ...data,
+        mtow_kg: finalMtow,
         stand_name: data.stands?.name || null
       }
       setMovement(movementData)

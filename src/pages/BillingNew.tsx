@@ -91,7 +91,7 @@ export function BillingNew() {
         stands!aircraft_movements_stand_id_fkey(name)
       `)
       .eq('airport_id', selectedAirportId)
-      .order('scheduled_time', { ascending: false })
+      .order('scheduled_time', { ascending: true })
 
     if (filterStartDate && filterEndDate) {
       const startDate = new Date(filterStartDate)
