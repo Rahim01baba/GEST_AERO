@@ -481,7 +481,7 @@ export function Movements() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                 <thead style={{ backgroundColor: '#f9fafb' }}>
                   <tr>
-                    {orderedColumns.map((column) => (
+                    {orderedColumns.slice(0, 3).map((column) => (
                       <th
                         key={column.id}
                         draggable
@@ -501,6 +501,25 @@ export function Movements() {
                       </th>
                     ))}
                     <th style={thStyle}>Actions</th>
+                    {orderedColumns.slice(3).map((column) => (
+                      <th
+                        key={column.id}
+                        draggable
+                        onDragStart={() => handleDragStart(column.id)}
+                        onDragOver={(e) => handleDragOver(e, column.id)}
+                        onDragEnd={handleDragEnd}
+                        style={{
+                          ...thStyle,
+                          cursor: 'move',
+                          minWidth: column.width,
+                          backgroundColor: draggedColumn === column.id ? '#dbeafe' : '#f9fafb',
+                          userSelect: 'none'
+                        }}
+                        title="Glisser pour réorganiser"
+                      >
+                        {column.label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -509,7 +528,7 @@ export function Movements() {
                       borderTop: '1px solid #f3f4f6',
                       transition: 'background-color 0.2s'
                     }}>
-                      {orderedColumns.map((column) => {
+                      {orderedColumns.slice(0, 3).map((column) => {
                         if (column.id === 'status') {
                           return (
                             <td key={column.id} style={tdStyle}>
@@ -592,6 +611,68 @@ export function Movements() {
                           ✏️
                         </button>
                       </td>
+                      {orderedColumns.slice(3).map((column) => {
+                        if (column.id === 'status') {
+                          return (
+                            <td key={column.id} style={tdStyle}>
+                              <select
+                                value={movement.status}
+                                onChange={(e) => updateStatus(movement.id, e.target.value)}
+                                style={{
+                                  padding: '5px 8px',
+                                  borderRadius: '5px',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  border: '1px solid #e5e7eb',
+                                  backgroundColor: 'white',
+                                  cursor: 'pointer',
+                                  minWidth: '140px',
+                                  ...getStatusStyle(movement.status)
+                                }}
+                              >
+                                {STATUS_OPTIONS.map(opt => (
+                                  <option key={opt.value} value={opt.value}>
+                                    {opt.emoji} {opt.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                          )
+                        }
+
+                        if (column.id === 'type') {
+                          return (
+                            <td key={column.id} style={{ ...tdStyle, textAlign: 'center' }}>
+                              <span style={{ fontSize: '18px' }}>
+                                {movement.movement_type === 'ARR' ? '🛬' : '🛫'}
+                              </span>
+                            </td>
+                          )
+                        }
+
+                        if (column.id === 'is_invoiced') {
+                          return (
+                            <td key={column.id} style={tdStyle}>
+                              <span style={{
+                                padding: '4px 8px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                backgroundColor: movement.is_invoiced ? '#d1fae5' : '#fee2e2',
+                                color: movement.is_invoiced ? '#065f46' : '#991b1b'
+                              }}>
+                                {movement.is_invoiced ? 'OUI' : 'NON'}
+                              </span>
+                            </td>
+                          )
+                        }
+
+                        return (
+                          <td key={column.id} style={tdStyle}>
+                            {column.accessor(movement)}
+                          </td>
+                        )
+                      })}
                     </tr>
                   ))}
                 </tbody>
