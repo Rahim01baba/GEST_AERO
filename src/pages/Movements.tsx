@@ -28,8 +28,9 @@ interface ColumnDef {
 }
 
 const ALL_COLUMNS: ColumnDef[] = [
-  { id: 'rotation_id', label: 'Rotation ID', accessor: (m) => m.rotation_id ? m.rotation_id.substring(0, 8) : '-', width: '100px' },
   { id: 'type', label: 'Type', accessor: (m) => m.movement_type === 'ARR' ? 'Arrivée' : 'Départ', width: '80px' },
+  { id: 'rotation_id', label: 'Rotation ID', accessor: (m) => m.rotation_id ? m.rotation_id.substring(0, 8) : '-', width: '100px' },
+  { id: 'is_invoiced', label: 'Facturé', accessor: (m) => m.is_invoiced ? 'Oui' : 'Non', width: '80px' },
   { id: 'flight_no_arr', label: 'Vol ARR', accessor: (m) => m.flight_no_arr || (m.movement_type === 'ARR' ? m.flight_number : '–'), width: '100px' },
   { id: 'flight_no_dep', label: 'Vol DEP', accessor: (m) => m.flight_no_dep || (m.movement_type === 'DEP' ? m.flight_number : '–'), width: '100px' },
   { id: 'airline_code', label: 'Compagnie', accessor: (m) => m.airline_code || '-', width: '100px' },
@@ -55,7 +56,6 @@ const ALL_COLUMNS: ColumnDef[] = [
   { id: 'freight_arr_kg', label: 'Fret ARR (kg)', accessor: (m) => m.freight_arr_kg?.toString() || '0', width: '120px' },
   { id: 'freight_dep_kg', label: 'Fret DEP (kg)', accessor: (m) => m.freight_dep_kg?.toString() || '0', width: '120px' },
   { id: 'remarks', label: 'Remarques', accessor: (m) => m.remarks || '-', width: '200px' },
-  { id: 'is_invoiced', label: 'Facturé', accessor: (m) => m.is_invoiced ? 'Oui' : 'Non', width: '80px' },
 ]
 
 export function Movements() {
