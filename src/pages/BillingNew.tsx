@@ -18,6 +18,7 @@ interface MovementWithStand {
   airline_name: string | null
   stand_name: string | null
   is_invoiced: boolean
+  rotation_id: string | null
 }
 
 interface Airport {
@@ -127,10 +128,11 @@ export function BillingNew() {
   }
 
   const exportToCSV = () => {
-    let csv = 'Vol,Type,Immatriculation,Type Avion,Date,Heure,Stand,Compagnie,Statut,Facturé\n'
+    let csv = 'Rotation ID,Vol,Type,Immatriculation,Type Avion,Date,Heure,Stand,Compagnie,Statut,Facturé\n'
 
     movements.forEach(m => {
       const date = new Date(m.scheduled_time)
+      csv += `${m.rotation_id ? m.rotation_id.substring(0, 8) : 'N/A'},`
       csv += `${m.flight_number},${m.movement_type},${m.registration},${m.aircraft_type},`
       csv += `${date.toLocaleDateString('fr-FR')},${date.toLocaleTimeString('fr-FR')},`
       csv += `${m.stand_name || 'N/A'},${m.airline_name || 'N/A'},${m.status},`
@@ -267,6 +269,7 @@ export function BillingNew() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead style={{ backgroundColor: '#f9fafb' }}>
                 <tr>
+                  <th style={thStyle}>Rotation</th>
                   <th style={thStyle}>Vol</th>
                   <th style={thStyle}>Type</th>
                   <th style={thStyle}>Immat</th>
@@ -285,6 +288,9 @@ export function BillingNew() {
                   const date = new Date(movement.scheduled_time)
                   return (
                     <tr key={movement.id} style={{ borderTop: '1px solid #e5e7eb' }}>
+                      <td style={{...tdStyle, fontSize: '11px', fontFamily: 'monospace', color: '#6b7280'}}>
+                        {movement.rotation_id ? movement.rotation_id.substring(0, 8) : '-'}
+                      </td>
                       <td style={tdStyle}>{movement.flight_number}</td>
                       <td style={tdStyle}>
                         <span style={{

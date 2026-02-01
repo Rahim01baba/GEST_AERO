@@ -28,6 +28,7 @@ interface ColumnDef {
 }
 
 const ALL_COLUMNS: ColumnDef[] = [
+  { id: 'rotation_id', label: 'Rotation ID', accessor: (m) => m.rotation_id ? m.rotation_id.substring(0, 8) : '-', width: '100px' },
   { id: 'type', label: 'Type', accessor: (m) => m.movement_type === 'ARR' ? 'Arrivée' : 'Départ', width: '80px' },
   { id: 'flight_no_arr', label: 'Vol ARR', accessor: (m) => m.flight_no_arr || (m.movement_type === 'ARR' ? m.flight_number : '–'), width: '100px' },
   { id: 'flight_no_dep', label: 'Vol DEP', accessor: (m) => m.flight_no_dep || (m.movement_type === 'DEP' ? m.flight_number : '–'), width: '100px' },
