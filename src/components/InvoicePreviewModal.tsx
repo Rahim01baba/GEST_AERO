@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { resolveBillingScope, getScopeLabel, getMovementsSummary, type AircraftMovement, type BillingScope } from '../lib/billingScope'
+import { buildInvoiceModelFromScope, type InvoiceModel } from '../lib/billingEngine'
+import { formatXOF } from '../lib/billing'
 
 interface InvoicePreviewModalProps {
   isOpen: boolean
@@ -7,142 +10,48 @@ interface InvoicePreviewModalProps {
   movementId: string
 }
 
-interface Movement {
-  id: string
-  flight_number: string
-  registration: string
-  aircraft_type: string
-  mtow_kg: number | null
-  scheduled_time: string
-  movement_type: string
-  airline_name: string | null
-  origin_iata: string | null
-  destination_iata: string | null
-  stand_name: string | null
-  pax_arr_full: number
-  pax_arr_half: number
-  pax_dep_full: number
-  pax_dep_half: number
-  traffic_type: string | null
-}
-
-interface BillingLine {
-  label: string
-  description: string
-  amount: number
-}
-
 export function InvoicePreviewModal({ isOpen, onClose, movementId }: InvoicePreviewModalProps) {
-  const [movement, setMovement] = useState<Movement | null>(null)
+  const [invoiceModel, setInvoiceModel] = useState<InvoiceModel | null>(null)
+  const [scope, setScope] = useState<BillingScope | null>(null)
   const [loading, setLoading] = useState(false)
-  const [billingLines, setBillingLines] = useState<BillingLine[]>([])
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (isOpen && movementId) {
-      loadMovementData()
+      loadAndCalculate()
     }
   }, [isOpen, movementId])
 
-  const loadMovementData = async () => {
+  const loadAndCalculate = async () => {
     setLoading(true)
+    setError(null)
     try {
-      const { data, error } = await supabase
+      const { data: movement, error: movementError } = await supabase
         .from('aircraft_movements')
-        .select(`
-          *,
-          stands!aircraft_movements_stand_id_fkey(name)
-        `)
+        .select('*')
         .eq('id', movementId)
         .single()
 
-      if (error) throw error
+      if (movementError) throw movementError
+      if (!movement) throw new Error('Mouvement introuvable')
 
-      let finalMtow = data.mtow_kg
+      const billingScope = await resolveBillingScope(movement as AircraftMovement)
+      setScope(billingScope)
 
-      if (!finalMtow && data.registration) {
-        const { data: aircraftData } = await supabase
-          .from('aircrafts')
-          .select('mtow_kg')
-          .eq('registration', data.registration)
-          .maybeSingle()
+      const model = await buildInvoiceModelFromScope(billingScope, {
+        documentType: 'PROFORMA',
+        pax_full: (movement.pax_arr_full || 0) + (movement.pax_dep_full || 0),
+        pax_half: (movement.pax_arr_half || 0) + (movement.pax_dep_half || 0),
+        pax_transit: movement.pax_transit || 0
+      })
 
-        if (aircraftData?.mtow_kg) {
-          finalMtow = aircraftData.mtow_kg
-        }
-      }
-
-      const movementData = {
-        ...data,
-        mtow_kg: finalMtow,
-        stand_name: data.stands?.name || null
-      }
-      setMovement(movementData)
-
-      calculateBilling(movementData)
-    } catch (error) {
-      console.error('Error loading movement:', error)
+      setInvoiceModel(model)
+    } catch (err: any) {
+      console.error('Error loading invoice preview:', err)
+      setError(err.message || 'Erreur lors du chargement')
     } finally {
       setLoading(false)
     }
-  }
-
-  const calculateBilling = (mvt: Movement) => {
-    const lines: BillingLine[] = []
-
-    const mtow = mvt.mtow_kg || 0
-    const paxTotal = mvt.pax_arr_full + mvt.pax_arr_half + mvt.pax_dep_full + mvt.pax_dep_half
-    const isInternational = mvt.traffic_type === 'INT'
-
-    if (mvt.movement_type === 'ARR' || mvt.movement_type === 'DEP') {
-      const landingRate = isInternational ? 15 : 10
-      const landingAmount = (mtow / 1000) * landingRate
-      lines.push({
-        label: 'Redevance d\'atterrissage',
-        description: `${(mtow / 1000).toFixed(2)} tonnes × ${landingRate} XOF/tonne`,
-        amount: landingAmount
-      })
-    }
-
-    if (mvt.stand_name) {
-      const parkingHours = 3
-      const parkingRate = 500
-      const parkingAmount = parkingHours * parkingRate
-      lines.push({
-        label: 'Redevance de stationnement',
-        description: `${parkingHours} heures × ${parkingRate} XOF/h`,
-        amount: parkingAmount
-      })
-    }
-
-    if (paxTotal > 0) {
-      const paxRate = isInternational ? 2000 : 1500
-      const paxAmount = paxTotal * paxRate
-      lines.push({
-        label: 'Redevance passagers',
-        description: `${paxTotal} PAX × ${paxRate} XOF`,
-        amount: paxAmount
-      })
-    }
-
-    lines.push({
-      label: 'Redevance de sûreté',
-      description: 'Forfait',
-      amount: 5000
-    })
-
-    setBillingLines(lines)
-  }
-
-  const getTotalHT = () => {
-    return billingLines.reduce((sum, line) => sum + line.amount, 0)
-  }
-
-  const getTVA = () => {
-    return getTotalHT() * 0.18
-  }
-
-  const getTotalTTC = () => {
-    return getTotalHT() + getTVA()
   }
 
   if (!isOpen) return null
@@ -160,34 +69,54 @@ export function InvoicePreviewModal({ isOpen, onClose, movementId }: InvoicePrev
         <div style={bodyStyle}>
           {loading ? (
             <div style={{ padding: '40px', textAlign: 'center' }}>Chargement...</div>
-          ) : movement ? (
+          ) : error ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#dc2626' }}>
+              {error}
+            </div>
+          ) : invoiceModel && scope ? (
             <>
               <div style={sectionStyle}>
-                <h3 style={sectionTitleStyle}>Informations du mouvement</h3>
+                <h3 style={sectionTitleStyle}>Périmètre de facturation</h3>
+                <div style={{ padding: '12px', backgroundColor: '#f0f9ff', borderRadius: '8px', marginBottom: '12px' }}>
+                  <div style={{ fontWeight: 600, color: '#0369a1', marginBottom: '8px' }}>
+                    {getScopeLabel(scope)}
+                  </div>
+                  {scope.rotation_id && (
+                    <div style={{ fontSize: '12px', color: '#0c4a6e', marginBottom: '8px' }}>
+                      Rotation ID: <code style={{ backgroundColor: '#e0f2fe', padding: '2px 6px', borderRadius: '4px' }}>{scope.rotation_id.slice(0, 8)}</code>
+                    </div>
+                  )}
+                  <div style={{ fontSize: '13px', color: '#0c4a6e' }}>
+                    <strong>Mouvements concernés:</strong>
+                    <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
+                      {getMovementsSummary(scope).map((summary, idx) => (
+                        <li key={idx} style={{ marginBottom: '4px' }}>{summary}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div style={sectionStyle}>
+                <h3 style={sectionTitleStyle}>Informations générales</h3>
                 <div style={infoGridStyle}>
                   <div style={infoItemStyle}>
-                    <strong>Vol:</strong> {movement.flight_number}
+                    <strong>Immatriculation:</strong> {invoiceModel.header.registration}
                   </div>
                   <div style={infoItemStyle}>
-                    <strong>Immatriculation:</strong> {movement.registration}
+                    <strong>Type d'avion:</strong> {invoiceModel.header.aircraft_type || 'N/A'}
                   </div>
                   <div style={infoItemStyle}>
-                    <strong>Type:</strong> {movement.aircraft_type}
+                    <strong>MTOW:</strong> {invoiceModel.header.mtow_kg} kg
                   </div>
                   <div style={infoItemStyle}>
-                    <strong>MTOW:</strong> {movement.mtow_kg ? `${movement.mtow_kg} kg` : 'N/A'}
+                    <strong>Compagnie:</strong> {invoiceModel.header.airline_name || invoiceModel.header.airline_code || 'N/A'}
                   </div>
                   <div style={infoItemStyle}>
-                    <strong>Date:</strong> {new Date(movement.scheduled_time).toLocaleString('fr-FR')}
+                    <strong>Trafic:</strong> {invoiceModel.header.traffic_type}
                   </div>
                   <div style={infoItemStyle}>
-                    <strong>Stand:</strong> {movement.stand_name || 'Non assigné'}
-                  </div>
-                  <div style={infoItemStyle}>
-                    <strong>Compagnie:</strong> {movement.airline_name || 'N/A'}
-                  </div>
-                  <div style={infoItemStyle}>
-                    <strong>Trafic:</strong> {movement.traffic_type || 'N/A'}
+                    <strong>Type de document:</strong> {invoiceModel.header.documentType}
                   </div>
                 </div>
               </div>
@@ -197,45 +126,54 @@ export function InvoicePreviewModal({ isOpen, onClose, movementId }: InvoicePrev
                 <table style={tableStyle}>
                   <thead>
                     <tr style={{ backgroundColor: '#f9fafb' }}>
+                      <th style={thStyle}>Code</th>
                       <th style={thStyle}>Redevance</th>
-                      <th style={thStyle}>Description</th>
-                      <th style={{ ...thStyle, textAlign: 'right' }}>Montant (XOF)</th>
+                      <th style={{ ...thStyle, textAlign: 'center' }}>Qté</th>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>Prix unit.</th>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>Total</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {billingLines.map((line, idx) => (
+                    {invoiceModel.items.map((item, idx) => (
                       <tr key={idx} style={{ borderTop: '1px solid #e5e7eb' }}>
-                        <td style={tdStyle}>{line.label}</td>
-                        <td style={tdStyle}>{line.description}</td>
+                        <td style={tdStyle}>{item.code}</td>
+                        <td style={tdStyle}>{item.label}</td>
+                        <td style={{ ...tdStyle, textAlign: 'center' }}>{item.qty}</td>
+                        <td style={{ ...tdStyle, textAlign: 'right' }}>
+                          {formatXOF(item.unit_price_xof)}
+                        </td>
                         <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 500 }}>
-                          {line.amount.toLocaleString('fr-FR')}
+                          {formatXOF(item.total_xof)}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot>
-                    <tr style={{ borderTop: '2px solid #e5e7eb' }}>
-                      <td colSpan={2} style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>
-                        Total HT:
-                      </td>
-                      <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>
-                        {getTotalHT().toLocaleString('fr-FR')} XOF
-                      </td>
-                    </tr>
-                    <tr>
-                      <td colSpan={2} style={{ ...tdStyle, textAlign: 'right' }}>
-                        TVA (18%):
-                      </td>
-                      <td style={{ ...tdStyle, textAlign: 'right' }}>
-                        {getTVA().toLocaleString('fr-FR')} XOF
-                      </td>
-                    </tr>
-                    <tr style={{ backgroundColor: '#f0fdf4' }}>
-                      <td colSpan={2} style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, fontSize: '16px' }}>
-                        Total TTC:
+                    {Object.entries(invoiceModel.totals.group_totals).map(([group, total]) => {
+                      if (total === 0) return null
+                      const groupLabels: Record<string, string> = {
+                        AERO: 'Redevances aéroportuaires',
+                        ESC: 'Services d\'escale',
+                        SURETE: 'Redevances sûreté',
+                        OTHER: 'Autres redevances'
+                      }
+                      return (
+                        <tr key={group} style={{ borderTop: '1px solid #e5e7eb' }}>
+                          <td colSpan={4} style={{ ...tdStyle, textAlign: 'right', fontStyle: 'italic', color: '#6b7280' }}>
+                            {groupLabels[group]}:
+                          </td>
+                          <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 500 }}>
+                            {formatXOF(total)}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                    <tr style={{ borderTop: '2px solid #374151', backgroundColor: '#f0fdf4' }}>
+                      <td colSpan={4} style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, fontSize: '16px' }}>
+                        TOTAL:
                       </td>
                       <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, fontSize: '16px', color: '#059669' }}>
-                        {getTotalTTC().toLocaleString('fr-FR')} XOF
+                        {formatXOF(invoiceModel.totals.grand_total_xof)}
                       </td>
                     </tr>
                   </tfoot>
@@ -248,7 +186,7 @@ export function InvoicePreviewModal({ isOpen, onClose, movementId }: InvoicePrev
             </>
           ) : (
             <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-              Mouvement introuvable
+              Données introuvables
             </div>
           )}
         </div>

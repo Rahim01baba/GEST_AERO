@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useToast } from './Toast'
+import { resolveBillingScope, getScopeLabel, type AircraftMovement, type BillingScope } from '../lib/billingScope'
+import { buildInvoiceModelFromScope, saveInvoice, type InvoiceModel } from '../lib/billingEngine'
+import { formatXOF } from '../lib/billing'
 
 interface InvoiceEditorModalProps {
   isOpen: boolean
@@ -10,201 +13,66 @@ interface InvoiceEditorModalProps {
   airportCode: string
 }
 
-interface Movement {
-  id: string
-  flight_number: string
-  registration: string
-  aircraft_type: string
-  mtow_kg: number | null
-  scheduled_time: string
-  movement_type: string
-  airline_name: string | null
-  airline_code: string | null
-  origin_iata: string | null
-  destination_iata: string | null
-  stand_name: string | null
-  pax_arr_full: number
-  pax_arr_half: number
-  pax_dep_full: number
-  pax_dep_half: number
-  traffic_type: string | null
-  airport_id: string
-}
-
-interface BillingLine {
-  label: string
-  description: string
-  amount: number
-}
-
 export function InvoiceEditorModal({ isOpen, onClose, onSuccess, movementId, airportCode }: InvoiceEditorModalProps) {
   const { showToast } = useToast()
-  const [movement, setMovement] = useState<Movement | null>(null)
+  const [invoiceModel, setInvoiceModel] = useState<InvoiceModel | null>(null)
+  const [scope, setScope] = useState<BillingScope | null>(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [billingLines, setBillingLines] = useState<BillingLine[]>([])
-  const [invoiceNumber, setInvoiceNumber] = useState('')
+  const [error, setError] = useState<string | null>(null)
   const [customerName, setCustomerName] = useState('')
 
   useEffect(() => {
     if (isOpen && movementId) {
-      loadMovementData()
+      loadAndCalculate()
     }
   }, [isOpen, movementId])
 
-  const loadMovementData = async () => {
+  const loadAndCalculate = async () => {
     setLoading(true)
+    setError(null)
     try {
-      const { data, error } = await supabase
+      const { data: movement, error: movementError } = await supabase
         .from('aircraft_movements')
-        .select(`
-          *,
-          stands!aircraft_movements_stand_id_fkey(name)
-        `)
+        .select('*')
         .eq('id', movementId)
         .single()
 
-      if (error) throw error
+      if (movementError) throw movementError
+      if (!movement) throw new Error('Mouvement introuvable')
 
-      let finalMtow = data.mtow_kg
+      const billingScope = await resolveBillingScope(movement as AircraftMovement)
+      setScope(billingScope)
 
-      if (!finalMtow && data.registration) {
-        const { data: aircraftData } = await supabase
-          .from('aircrafts')
-          .select('mtow_kg')
-          .eq('registration', data.registration)
-          .maybeSingle()
+      setCustomerName(movement.airline_name || movement.airline_code || '')
 
-        if (aircraftData?.mtow_kg) {
-          finalMtow = aircraftData.mtow_kg
-        }
-      }
+      const model = await buildInvoiceModelFromScope(billingScope, {
+        documentType: 'PROFORMA',
+        pax_full: (movement.pax_arr_full || 0) + (movement.pax_dep_full || 0),
+        pax_half: (movement.pax_arr_half || 0) + (movement.pax_dep_half || 0),
+        pax_transit: movement.pax_transit || 0
+      })
 
-      const movementData = {
-        ...data,
-        mtow_kg: finalMtow,
-        stand_name: data.stands?.name || null
-      }
-      setMovement(movementData)
-      setCustomerName(movementData.airline_name || '')
-
-      await generateInvoiceNumber(movementData.airport_id)
-      calculateBilling(movementData)
-    } catch (error) {
-      console.error('Error loading movement:', error)
-      showToast('Erreur de chargement', 'error')
+      setInvoiceModel(model)
+    } catch (err: any) {
+      console.error('Error loading invoice preview:', err)
+      setError(err.message || 'Erreur lors du chargement')
     } finally {
       setLoading(false)
     }
   }
 
-  const generateInvoiceNumber = async (airportId: string) => {
-    const now = new Date()
-    const yearMonth = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}`
-
-    const { count } = await supabase
-      .from('invoices')
-      .select('*', { count: 'exact', head: true })
-      .eq('airport_id', airportId)
-      .gte('created_at', `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-01`)
-
-    const sequence = ((count || 0) + 1).toString().padStart(4, '0')
-    const invoiceNum = `SODEXAM-${airportCode}-${yearMonth}-${sequence}`
-    setInvoiceNumber(invoiceNum)
-  }
-
-  const calculateBilling = (mvt: Movement) => {
-    const lines: BillingLine[] = []
-
-    const mtow = mvt.mtow_kg || 0
-    const paxTotal = mvt.pax_arr_full + mvt.pax_arr_half + mvt.pax_dep_full + mvt.pax_dep_half
-    const isInternational = mvt.traffic_type === 'INT'
-
-    if (mvt.movement_type === 'ARR' || mvt.movement_type === 'DEP') {
-      const landingRate = isInternational ? 15 : 10
-      const landingAmount = (mtow / 1000) * landingRate
-      lines.push({
-        label: 'Redevance d\'atterrissage',
-        description: `${(mtow / 1000).toFixed(2)} tonnes × ${landingRate} XOF/tonne`,
-        amount: landingAmount
-      })
-    }
-
-    if (mvt.stand_name) {
-      const parkingHours = 3
-      const parkingRate = 500
-      const parkingAmount = parkingHours * parkingRate
-      lines.push({
-        label: 'Redevance de stationnement',
-        description: `${parkingHours} heures × ${parkingRate} XOF/h`,
-        amount: parkingAmount
-      })
-    }
-
-    if (paxTotal > 0) {
-      const paxRate = isInternational ? 2000 : 1500
-      const paxAmount = paxTotal * paxRate
-      lines.push({
-        label: 'Redevance passagers',
-        description: `${paxTotal} PAX × ${paxRate} XOF`,
-        amount: paxAmount
-      })
-    }
-
-    lines.push({
-      label: 'Redevance de sûreté',
-      description: 'Forfait',
-      amount: 5000
-    })
-
-    setBillingLines(lines)
-  }
-
-  const getTotalHT = () => {
-    return billingLines.reduce((sum, line) => sum + line.amount, 0)
-  }
-
-  const getTVA = () => {
-    return getTotalHT() * 0.18
-  }
-
-  const getTotalTTC = () => {
-    return getTotalHT() + getTVA()
-  }
-
   const handleSave = async () => {
-    if (!movement) return
+    if (!invoiceModel || !customerName) return
 
     setSaving(true)
     try {
-      const { error } = await supabase
-        .from('invoices')
-        .insert({
-          movement_id: movement.id,
-          airport_id: movement.airport_id,
-          invoice_number: invoiceNumber,
-          customer: customerName,
-          registration: movement.registration,
-          flight_number: movement.flight_number,
-          amount_xof: getTotalHT(),
-          total_xof: getTotalTTC(),
-          tax_xof: getTVA(),
-          status: 'Issued',
-          traffic_type: movement.traffic_type || 'NAT',
-          issued_at: new Date().toISOString(),
-          billing_details: {
-            lines: billingLines
-          }
-        })
+      await saveInvoice(invoiceModel, {
+        client_name: customerName,
+        status: 'draft'
+      })
 
-      if (error) throw error
-
-      await supabase
-        .from('aircraft_movements')
-        .update({ is_invoiced: true })
-        .eq('id', movement.id)
-
-      showToast('Facture créée avec succès', 'success')
+      showToast('Proforma créée avec succès', 'success')
       onSuccess()
       onClose()
     } catch (error: any) {
@@ -229,7 +97,7 @@ export function InvoiceEditorModal({ isOpen, onClose, onSuccess, movementId, air
       <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
           <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>
-            Édition de facture
+            Édition de proforma
           </h2>
           <button onClick={onClose} style={closeButtonStyle}>×</button>
         </div>
@@ -237,7 +105,11 @@ export function InvoiceEditorModal({ isOpen, onClose, onSuccess, movementId, air
         <div style={bodyStyle}>
           {loading ? (
             <div style={{ padding: '40px', textAlign: 'center' }}>Chargement...</div>
-          ) : movement ? (
+          ) : error ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#dc2626' }}>
+              {error}
+            </div>
+          ) : invoiceModel && scope ? (
             <>
               <div style={invoiceHeaderStyle}>
                 <div style={logoSectionStyle}>
@@ -257,14 +129,25 @@ export function InvoiceEditorModal({ isOpen, onClose, onSuccess, movementId, air
                 </div>
 
                 <div style={invoiceInfoStyle}>
-                  <h3 style={{ margin: '0 0 12px 0', fontSize: '24px', fontWeight: 700, color: '#1f2937' }}>
-                    FACTURE
+                  <h3 style={{ margin: '0 0 12px 0', fontSize: '24px', fontWeight: 700, color: '#f59e0b' }}>
+                    PROFORMA
                   </h3>
                   <div style={{ fontSize: '14px', color: '#374151' }}>
-                    <strong>N° {invoiceNumber}</strong>
-                    <br />
                     Date: {new Date().toLocaleDateString('fr-FR')}
                   </div>
+                </div>
+              </div>
+
+              <div style={sectionStyle}>
+                <div style={{ padding: '12px', backgroundColor: '#fef3c7', borderRadius: '8px', marginBottom: '12px', border: '1px solid #f59e0b' }}>
+                  <div style={{ fontWeight: 600, color: '#b45309', marginBottom: '8px' }}>
+                    {getScopeLabel(scope)}
+                  </div>
+                  {scope.rotation_id && (
+                    <div style={{ fontSize: '12px', color: '#92400e', marginBottom: '8px' }}>
+                      Rotation ID: <code style={{ backgroundColor: '#fef3c7', padding: '2px 6px', borderRadius: '4px', border: '1px solid #fbbf24' }}>{scope.rotation_id.slice(0, 8)}</code>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -280,7 +163,7 @@ export function InvoiceEditorModal({ isOpen, onClose, onSuccess, movementId, air
                   />
                 </div>
                 <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '8px' }}>
-                  <strong>Vol:</strong> {movement.flight_number} | <strong>Immat:</strong> {movement.registration} | <strong>Date:</strong> {new Date(movement.scheduled_time).toLocaleDateString('fr-FR')}
+                  <strong>Immat:</strong> {invoiceModel.header.registration} | <strong>MTOW:</strong> {invoiceModel.header.mtow_kg} kg | <strong>Trafic:</strong> {invoiceModel.header.traffic_type}
                 </div>
               </div>
 
@@ -288,45 +171,54 @@ export function InvoiceEditorModal({ isOpen, onClose, onSuccess, movementId, air
                 <table style={tableStyle}>
                   <thead>
                     <tr style={{ backgroundColor: '#f9fafb' }}>
+                      <th style={thStyle}>Code</th>
                       <th style={thStyle}>Redevance</th>
-                      <th style={thStyle}>Description</th>
-                      <th style={{ ...thStyle, textAlign: 'right' }}>Montant HT (XOF)</th>
+                      <th style={{ ...thStyle, textAlign: 'center' }}>Qté</th>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>Prix unitaire</th>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>Total</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {billingLines.map((line, idx) => (
+                    {invoiceModel.items.map((item, idx) => (
                       <tr key={idx} style={{ borderTop: '1px solid #e5e7eb' }}>
-                        <td style={tdStyle}>{line.label}</td>
-                        <td style={tdStyle}>{line.description}</td>
+                        <td style={tdStyle}>{item.code}</td>
+                        <td style={tdStyle}>{item.label}</td>
+                        <td style={{ ...tdStyle, textAlign: 'center' }}>{item.qty}</td>
+                        <td style={{ ...tdStyle, textAlign: 'right' }}>
+                          {formatXOF(item.unit_price_xof)}
+                        </td>
                         <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 500 }}>
-                          {line.amount.toLocaleString('fr-FR')}
+                          {formatXOF(item.total_xof)}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot>
-                    <tr style={{ borderTop: '2px solid #e5e7eb' }}>
-                      <td colSpan={2} style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>
-                        Total HT:
+                    {Object.entries(invoiceModel.totals.group_totals).map(([group, total]) => {
+                      if (total === 0) return null
+                      const groupLabels: Record<string, string> = {
+                        AERO: 'Redevances aéroportuaires',
+                        ESC: 'Services d\'escale',
+                        SURETE: 'Redevances sûreté',
+                        OTHER: 'Autres redevances'
+                      }
+                      return (
+                        <tr key={group} style={{ borderTop: '1px solid #e5e7eb' }}>
+                          <td colSpan={4} style={{ ...tdStyle, textAlign: 'right', fontStyle: 'italic', color: '#6b7280' }}>
+                            {groupLabels[group]}:
+                          </td>
+                          <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 500 }}>
+                            {formatXOF(total)}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                    <tr style={{ borderTop: '2px solid #374151', backgroundColor: '#fef3c7' }}>
+                      <td colSpan={4} style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, fontSize: '16px' }}>
+                        TOTAL:
                       </td>
-                      <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>
-                        {getTotalHT().toLocaleString('fr-FR')} XOF
-                      </td>
-                    </tr>
-                    <tr>
-                      <td colSpan={2} style={{ ...tdStyle, textAlign: 'right' }}>
-                        TVA (18%):
-                      </td>
-                      <td style={{ ...tdStyle, textAlign: 'right' }}>
-                        {getTVA().toLocaleString('fr-FR')} XOF
-                      </td>
-                    </tr>
-                    <tr style={{ backgroundColor: '#f0fdf4' }}>
-                      <td colSpan={2} style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, fontSize: '16px' }}>
-                        Total TTC:
-                      </td>
-                      <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, fontSize: '16px', color: '#059669' }}>
-                        {getTotalTTC().toLocaleString('fr-FR')} XOF
+                      <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, fontSize: '16px', color: '#b45309' }}>
+                        {formatXOF(invoiceModel.totals.grand_total_xof)}
                       </td>
                     </tr>
                   </tfoot>
@@ -339,7 +231,7 @@ export function InvoiceEditorModal({ isOpen, onClose, onSuccess, movementId, air
             </>
           ) : (
             <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-              Mouvement introuvable
+              Données introuvables
             </div>
           )}
         </div>
@@ -359,7 +251,7 @@ export function InvoiceEditorModal({ isOpen, onClose, onSuccess, movementId, air
             opacity: (saving || !customerName) ? 0.5 : 1,
             cursor: (saving || !customerName) ? 'not-allowed' : 'pointer'
           }}>
-            {saving ? 'Enregistrement...' : '💾 Enregistrer'}
+            {saving ? 'Enregistrement...' : '💾 Enregistrer Proforma'}
           </button>
         </div>
       </div>
@@ -419,6 +311,10 @@ const invoiceHeaderStyle: React.CSSProperties = {
   marginBottom: '32px',
   paddingBottom: '24px',
   borderBottom: '3px solid #3b82f6'
+}
+
+const sectionStyle: React.CSSProperties = {
+  marginBottom: '16px'
 }
 
 const logoSectionStyle: React.CSSProperties = {
@@ -514,7 +410,7 @@ const secondaryButtonStyle: React.CSSProperties = {
 
 const saveButtonStyle: React.CSSProperties = {
   padding: '8px 16px',
-  backgroundColor: '#10b981',
+  backgroundColor: '#f59e0b',
   color: 'white',
   border: 'none',
   borderRadius: '6px',
