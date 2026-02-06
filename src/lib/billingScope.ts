@@ -3,6 +3,7 @@
  */
 
 import { supabase } from './supabase';
+import { logger } from './logger';
 
 export type AircraftMovement = {
   id: string;
@@ -53,7 +54,7 @@ export async function resolveBillingScope(
     .order('scheduled_time', { ascending: true });
 
   if (error) {
-    console.error('Error fetching rotation movements:', error);
+    logger.error('Error fetching rotation movements', { error });
     return {
       kind: 'SINGLE',
       movements: [selectedMovement]

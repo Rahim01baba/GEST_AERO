@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth'
 import { useToast } from '../components/Toast'
 import { InvoicePreviewModal } from '../components/InvoicePreviewModal'
 import { InvoiceEditorModal } from '../components/InvoiceEditorModal'
+import { logger } from '../lib/logger'
 
 interface MovementWithStand {
   id: string
@@ -113,7 +114,7 @@ export function BillingNew() {
     const { data, error } = await query
 
     if (error) {
-      console.error('Error loading movements:', error)
+      logger.error('Error loading movements', { error })
       showToast('Erreur de chargement', 'error')
       setMovements([])
     } else {

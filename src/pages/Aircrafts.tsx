@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Layout } from '../components/Layout'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/Toast'
+import { logger } from '../lib/logger'
 
 interface Aircraft {
   id: string
@@ -62,7 +63,7 @@ export function Aircrafts() {
 
       setAircrafts(data || [])
     } catch (err: any) {
-      console.error('Error loading aircrafts:', err)
+      logger.error('Error loading aircrafts', { error: err })
       const errorMessage = err.message || 'Erreur inconnue'
       if (err.code === '42501') {
         setError('Accès refusé (RLS). Vérifiez vos permissions.')

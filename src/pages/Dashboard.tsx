@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Layout } from '../components/Layout'
 import { useAuth } from '../lib/auth'
 import { DashboardFilters, FilterValues } from '../components/DashboardFilters'
+import { logger } from '../lib/logger'
 import {
   getMovementsCount,
   getMovementsDailySeries,
@@ -78,7 +79,7 @@ export function Dashboard() {
       .order('name')
 
     if (error) {
-      console.error('Error loading airports:', error)
+      logger.error('Error loading airports', { error })
       return
     }
 
@@ -126,7 +127,7 @@ export function Dashboard() {
       setTopRoutes(routes)
       setDailyOccupancy(occupancySeries)
     } catch (error) {
-      console.error('Error loading dashboard data:', error)
+      logger.error('Error loading dashboard data', { error })
     } finally {
       setLoading(false)
     }

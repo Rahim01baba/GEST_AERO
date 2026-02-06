@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase, logAudit } from '../lib/supabase'
 import { useToast } from './Toast'
+import { logger } from '../lib/logger'
 
 interface MovementModalProps {
   isOpen: boolean
@@ -228,23 +229,23 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
     const upperReg = registration.toUpperCase()
     setRegistration(upperReg)
 
-    console.log('🔍 Looking up aircraft:', upperReg)
+    logger.debug('Looking up aircraft', { registration: upperReg })
 
     const { data, error } = await supabase.rpc('lookup_aircraft_by_registration', {
       p_registration: upperReg
     })
 
     if (error) {
-      console.error('❌ RPC Error:', error)
+      logger.error('RPC Error', { error })
       showToast('Erreur lors de la recherche de l\'avion', 'error')
       return
     }
 
-    console.log('📊 RPC Response:', data)
+    logger.debug('RPC Response', { data })
 
     if (data && data.length > 0) {
       const aircraftData: AircraftRegistryData = data[0]
-      console.log('✅ Aircraft found:', aircraftData)
+      logger.debug('Aircraft found', { aircraftData })
 
       if (aircraftData.mtow_kg) setMtow(aircraftData.mtow_kg.toString())
       if (aircraftData.aircraft_type) setAircraftType(aircraftData.aircraft_type)
@@ -254,7 +255,7 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
       setAutoFilled(true)
       showToast('Données aéronef pré-remplies depuis le registre', 'success')
     } else {
-      console.log('ℹ️ No aircraft found for:', upperReg)
+      logger.debug('No aircraft found', { registration: upperReg })
     }
   }
 

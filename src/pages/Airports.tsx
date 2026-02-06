@@ -4,6 +4,7 @@ import { Layout } from '../components/Layout'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/Toast'
+import { logger } from '../lib/logger'
 
 interface Airport {
   id: string
@@ -42,7 +43,7 @@ export function Airports() {
       .order('name')
 
     if (error) {
-      console.error('Error loading airports:', error)
+      logger.error('Error loading airports', { error })
       showToast('Erreur de chargement des aéroports', 'error')
     } else {
       setAirports(data || [])
@@ -58,7 +59,7 @@ export function Airports() {
       .eq('id', id)
 
     if (error) {
-      console.error('Error deleting airport:', error)
+      logger.error('Error deleting airport', { error })
       showToast('Erreur lors de la suppression', 'error')
     } else {
       showToast('Aéroport supprimé avec succès', 'success')

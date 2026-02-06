@@ -4,6 +4,7 @@ import { useToast } from './Toast'
 import { resolveBillingScope, getScopeLabel, type AircraftMovement, type BillingScope } from '../lib/billingScope'
 import { buildInvoiceModelFromScope, saveInvoice, type InvoiceModel } from '../lib/billingEngine'
 import { formatXOF } from '../lib/billing'
+import { logger } from '../lib/logger'
 
 interface InvoiceEditorModalProps {
   isOpen: boolean
@@ -55,7 +56,7 @@ export function InvoiceEditorModal({ isOpen, onClose, onSuccess, movementId, air
 
       setInvoiceModel(model)
     } catch (err: any) {
-      console.error('Error loading invoice preview:', err)
+      logger.error('Error loading invoice preview', { error: err })
       setError(err.message || 'Erreur lors du chargement')
     } finally {
       setLoading(false)

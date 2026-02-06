@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { resolveBillingScope, getScopeLabel, getMovementsSummary, type AircraftMovement, type BillingScope } from '../lib/billingScope'
 import { buildInvoiceModelFromScope, type InvoiceModel } from '../lib/billingEngine'
 import { formatXOF } from '../lib/billing'
+import { logger } from '../lib/logger'
 
 interface InvoicePreviewModalProps {
   isOpen: boolean
@@ -47,7 +48,7 @@ export function InvoicePreviewModal({ isOpen, onClose, movementId }: InvoicePrev
 
       setInvoiceModel(model)
     } catch (err: any) {
-      console.error('Error loading invoice preview:', err)
+      logger.error('Error loading invoice preview', { error: err })
       setError(err.message || 'Erreur lors du chargement')
     } finally {
       setLoading(false)

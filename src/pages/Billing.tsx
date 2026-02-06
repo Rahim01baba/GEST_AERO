@@ -5,6 +5,7 @@ import { supabase, Invoice, AircraftMovement, logAudit } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/Toast'
 import { formatXOF } from '../lib/billing'
+import { logger } from '../lib/logger'
 
 export function Billing() {
   const { user, can, getAssignedAirportId } = useAuth()
@@ -80,7 +81,7 @@ export function Billing() {
 
       setInvoices(data || [])
     } catch (err: any) {
-      console.error('Error loading invoices:', err)
+      logger.error('Error loading invoices', { error: err })
       const errorMessage = err.message || 'Erreur inconnue'
       if (err.code === '42501') {
         setError('Accès refusé (RLS). Vérifiez vos permissions.')
@@ -126,7 +127,7 @@ export function Billing() {
       if (error) throw error
       setUninvoicedMovements(data || [])
     } catch (err: any) {
-      console.error('Error loading uninvoiced movements:', err)
+      logger.error('Error loading uninvoiced movements', { error: err })
       showToast('Erreur chargement mouvements', 'error')
     } finally {
       setMovementsLoading(false)
@@ -185,7 +186,7 @@ export function Billing() {
 
       navigate(`/billing/${invoice.id}`)
     } catch (err: any) {
-      console.error('Error creating invoice:', err)
+      logger.error('Error creating invoice', { error: err })
       showToast(err.message || 'Erreur création facture', 'error')
     } finally {
       setCreatingInvoices(prev => {

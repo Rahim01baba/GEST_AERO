@@ -5,6 +5,7 @@ import { supabase, logAudit } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/Toast'
 import { InfrastructureManagement } from '../components/InfrastructureManagement'
+import { logger } from '../lib/logger'
 
 export function AirportEditor() {
   const { id } = useParams()
@@ -46,7 +47,7 @@ export function AirportEditor() {
       .single()
 
     if (error) {
-      console.error('Error loading airport:', error)
+      logger.error('Error loading airport', { error })
       showToast('Erreur de chargement', 'error')
       navigate('/airports')
     } else if (data) {
@@ -106,7 +107,7 @@ export function AirportEditor() {
         .single()
 
       if (error) {
-        console.error('Error creating airport:', error)
+        logger.error('Error creating airport', { error })
         if (error.code === '23505') {
           setError('Un aéroport avec ce code OACI existe déjà')
         } else {
@@ -134,7 +135,7 @@ export function AirportEditor() {
         .eq('id', id)
 
       if (error) {
-        console.error('Error updating airport:', error)
+        logger.error('Error updating airport', { error })
         if (error.code === '23505') {
           setError('Un aéroport avec ce code OACI existe déjà')
         } else {

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase, logAudit } from '../lib/supabase'
+import { logger } from '../lib/logger'
 
 // ========== TYPES ==========
 
@@ -70,7 +71,7 @@ function StandsSection({ airportId, canWrite, showToast }: InfrastructureManagem
       .order('name')
 
     if (error) {
-      console.error('Error loading stands:', error)
+      logger.error('Error loading stands', { error })
       showToast('Erreur chargement parkings', 'error')
     } else {
       setStands(data || [])
@@ -132,7 +133,7 @@ function StandsSection({ airportId, canWrite, showToast }: InfrastructureManagem
         .eq('id', editingId)
 
       if (error) {
-        console.error('Error updating stand:', error)
+        logger.error('Error updating stand', { error })
         showToast(`Erreur: ${error.message}`, 'error')
       } else {
         showToast('Parking mis à jour', 'success')
@@ -146,7 +147,7 @@ function StandsSection({ airportId, canWrite, showToast }: InfrastructureManagem
         .insert(standData)
 
       if (error) {
-        console.error('Error creating stand:', error)
+        logger.error('Error creating stand', { error })
         showToast(`Erreur: ${error.message}`, 'error')
       } else {
         showToast('Parking créé', 'success')
@@ -168,7 +169,7 @@ function StandsSection({ airportId, canWrite, showToast }: InfrastructureManagem
       .eq('id', id)
 
     if (error) {
-      console.error('Error deleting stand:', error)
+      logger.error('Error deleting stand', { error })
       showToast(`Erreur: ${error.message}`, 'error')
     } else {
       showToast('Parking supprimé', 'success')
@@ -500,7 +501,7 @@ function RunwaysSection({ airportId, canWrite, showToast }: InfrastructureManage
       .order('name')
 
     if (error) {
-      console.error('Error loading runways:', error)
+      logger.error('Error loading runways', { error })
       showToast('Erreur chargement pistes', 'error')
     } else {
       setRunways(data || [])
@@ -907,7 +908,7 @@ function TaxiwaysSection({ airportId, canWrite, showToast }: InfrastructureManag
       .order('name')
 
     if (error) {
-      console.error('Error loading taxiways:', error)
+      logger.error('Error loading taxiways', { error })
       showToast('Erreur chargement bretelles', 'error')
     } else {
       setTaxiways(data || [])

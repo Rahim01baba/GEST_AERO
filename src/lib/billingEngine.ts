@@ -4,6 +4,7 @@
  */
 
 import { supabase } from './supabase';
+import { logger } from './logger';
 import type { BillingScope } from './billingScope';
 import {
   calculateAllItems,
@@ -230,7 +231,7 @@ export async function saveInvoice(
       .in('id', movementIds);
 
     if (updateError) {
-      console.error('Erreur lors de la mise à jour is_invoiced:', updateError);
+      logger.error('Erreur lors de la mise à jour is_invoiced', { error: updateError });
     }
   }
 
