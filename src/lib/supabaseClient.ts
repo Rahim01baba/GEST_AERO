@@ -4,6 +4,7 @@ import { logger } from './logger';
 
 export class SupabaseClient {
   static async query<T>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     builder: any,
     context?: string
   ): Promise<T[]> {
@@ -19,6 +20,7 @@ export class SupabaseClient {
   }
 
   static async querySingle<T>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     builder: any,
     context?: string
   ): Promise<T> {
@@ -44,6 +46,7 @@ export class SupabaseClient {
   ): Promise<T[]> {
     logger.debug('Executing Supabase insert', { table, context });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await supabase
       .from(table)
       .insert(values as any)
@@ -64,6 +67,7 @@ export class SupabaseClient {
   ): Promise<T> {
     logger.debug('Executing Supabase update', { table, id, context });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await supabase
       .from(table)
       .update(values as any)
@@ -113,3 +117,4 @@ export class SupabaseClient {
 }
 
 export { supabase };
+

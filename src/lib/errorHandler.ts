@@ -10,7 +10,15 @@ export enum ErrorCode {
 }
 
 export interface ErrorContext {
-  [key: string]: any;
+  userId?: string;
+  resource?: string;
+  action?: string;
+  airportId?: string;
+  movementId?: string;
+  invoiceId?: string;
+  page?: string;
+  filters?: Record<string, string | number | boolean>;
+  metadata?: Record<string, string | number | boolean | null>;
 }
 
 export class AppError extends Error {

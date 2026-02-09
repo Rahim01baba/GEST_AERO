@@ -202,7 +202,7 @@ export const api = {
     }
 
     if (!billingRates) {
-      throw AppError.notFound('Billing rates', { airport_id: request.airport_id });
+      throw AppError.notFound('Billing rates', { airportId: request.airport_id });
     }
 
     const lineItems = movements.map((movement: any) => {
