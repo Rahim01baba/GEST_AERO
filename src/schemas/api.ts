@@ -76,12 +76,12 @@ export type UpdateMovementInput = z.infer<typeof UpdateMovementSchema>;
 export type InvoicePreviewInput = z.infer<typeof InvoicePreviewSchema>;
 export type CreateInvoiceInput = z.infer<typeof CreateInvoiceSchema>;
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   ok: boolean;
   data?: T;
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
   };
 }

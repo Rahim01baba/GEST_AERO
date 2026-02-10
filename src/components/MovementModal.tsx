@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase, logAudit } from '../lib/supabase'
 import { useToast } from './Toast'
 import { logger } from '../lib/logger'
+import { toUserMessage } from '../lib/errorHandler'
 
 interface MovementModalProps {
   isOpen: boolean
@@ -389,8 +390,8 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
       showToast(isEditMode ? 'Mis à jour avec succès' : 'Créé avec succès', 'success')
       onSuccess()
       onClose()
-    } catch (err: any) {
-      setError(err.message || 'Erreur de sauvegarde')
+    } catch (err: unknown) {
+      setError(toUserMessage(err))
       showToast('Erreur', 'error')
     } finally {
       setLoading(false)
@@ -422,8 +423,8 @@ export function MovementModal({ isOpen, onClose, onSuccess, airportId, editMovem
         onSuccess()
         onClose()
       }
-    } catch (err: any) {
-      setError(err.message || 'Erreur de suppression')
+    } catch (err: unknown) {
+      setError(toUserMessage(err))
       showToast('Erreur', 'error')
     } finally {
       setLoading(false)

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Layout } from '../components/Layout'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/Toast'
+import { toUserMessage } from '../lib/errorHandler'
 
 interface AircraftEditorProps {
   mode: 'create' | 'edit'
@@ -58,7 +59,7 @@ export function AircraftEditor({ mode }: AircraftEditorProps) {
         remarks: data.remarks || ''
       })
     } catch (err: any) {
-      showToast('Erreur de chargement: ' + err.message, 'error')
+      showToast('Erreur de chargement: ' + toUserMessage(err), 'error')
       navigate('/aircrafts')
     } finally {
       setLoading(false)
@@ -104,7 +105,7 @@ export function AircraftEditor({ mode }: AircraftEditorProps) {
 
       navigate('/aircrafts')
     } catch (err: any) {
-      showToast('Erreur: ' + err.message, 'error')
+      showToast('Erreur: ' + toUserMessage(err), 'error')
     } finally {
       setSaving(false)
     }
@@ -126,7 +127,7 @@ export function AircraftEditor({ mode }: AircraftEditorProps) {
       showToast('Avion supprimé', 'success')
       navigate('/aircrafts')
     } catch (err: any) {
-      showToast('Erreur: ' + err.message, 'error')
+      showToast('Erreur: ' + toUserMessage(err), 'error')
     }
   }
 

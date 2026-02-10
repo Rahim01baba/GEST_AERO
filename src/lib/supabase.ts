@@ -160,7 +160,7 @@ export interface AuditLog {
   action: string
   target_type: string
   target_id: string | null
-  details: any
+  details: unknown
   timestamp: string
 }
 
@@ -168,7 +168,7 @@ export async function logAudit(
   action: string,
   targetType: string,
   targetId?: string,
-  details?: any
+  details?: unknown
 ) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return

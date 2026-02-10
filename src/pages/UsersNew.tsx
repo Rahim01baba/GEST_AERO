@@ -3,6 +3,7 @@ import { Layout } from '../components/Layout'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/Toast'
+import { toUserMessage } from '../lib/errorHandler'
 
 interface User {
   id: string
@@ -60,7 +61,7 @@ export function UsersNew() {
       setUsers(usersRes.data || [])
       setPermissions(permsRes.data || [])
     } catch (error: any) {
-      showToast('Erreur de chargement: ' + error.message, 'error')
+      showToast('Erreur de chargement: ' + toUserMessage(error), 'error')
     } finally {
       setLoading(false)
     }
@@ -147,7 +148,7 @@ export function UsersNew() {
       showToast('Permissions enregistrées', 'success')
       loadData()
     } catch (error: any) {
-      showToast('Erreur de sauvegarde: ' + error.message, 'error')
+      showToast('Erreur de sauvegarde: ' + toUserMessage(error), 'error')
     } finally {
       setSaving(false)
     }
@@ -163,7 +164,7 @@ export function UsersNew() {
       showToast(`Utilisateur ${currentActive ? 'désactivé' : 'activé'}`, 'success')
       loadData()
     } catch (error: any) {
-      showToast('Erreur: ' + error.message, 'error')
+      showToast('Erreur: ' + toUserMessage(error), 'error')
     }
   }
 

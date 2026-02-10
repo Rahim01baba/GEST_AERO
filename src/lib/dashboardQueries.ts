@@ -195,7 +195,9 @@ export async function getStandOccupancyAvg(filters: DashboardFilters): Promise<n
   if (occupiedRes.error) throw occupiedRes.error
 
   const totalStands = standsRes.data?.length || 1
-  const occupiedStands = new Set(occupiedRes.data?.map((m: any) => m.stand_id)).size
+  const occupiedStands = new Set(
+    (occupiedRes.data as { stand_id: string | null }[] | null)?.map((m) => m.stand_id)
+  ).size
 
   return Math.round((occupiedStands / totalStands) * 100)
 }
@@ -243,8 +245,9 @@ export async function getTopRoutes(
 
   if (error) throw error
 
-  return (data || [])
-    .map((row: any) => ({
+  type RouteRow = { route: string; total_vols: number };
+  return ((data as RouteRow[]) || [])
+    .map((row) => ({
       route: row.route.replace('XXX', '?'),
       count: Number(row.total_vols)
     }))

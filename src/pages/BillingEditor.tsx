@@ -6,6 +6,7 @@ import type { InvoiceItem as DbInvoiceItem } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/Toast'
 import { calculateAllItems, formatXOF, BillingCalculationInput, calculateTotal, calculateGroupTotals } from '../lib/billing'
+import { toUserMessage } from '../lib/errorHandler'
 
 interface BillingEditorProps {
   mode: 'create' | 'edit'
@@ -116,7 +117,7 @@ export function BillingEditor({ mode }: BillingEditorProps) {
       })
       setItems(dbItems)
     } catch (err: any) {
-      showToast('Erreur de chargement: ' + err.message, 'error')
+      showToast('Erreur de chargement: ' + toUserMessage(err), 'error')
       navigate('/billing')
     } finally {
       setLoading(false)
@@ -243,7 +244,7 @@ export function BillingEditor({ mode }: BillingEditorProps) {
       showToast('Facture enregistrée', 'success')
       navigate('/billing')
     } catch (err: any) {
-      showToast('Erreur: ' + err.message, 'error')
+      showToast('Erreur: ' + toUserMessage(err), 'error')
     } finally {
       setSaving(false)
     }
@@ -266,7 +267,7 @@ export function BillingEditor({ mode }: BillingEditorProps) {
       await logAudit('Delete invoice', 'invoices', id)
       navigate('/billing')
     } catch (err: any) {
-      showToast('Erreur: ' + err.message, 'error')
+      showToast('Erreur: ' + toUserMessage(err), 'error')
     }
   }
 
@@ -288,7 +289,7 @@ export function BillingEditor({ mode }: BillingEditorProps) {
       showToast(`Statut: ${newStatus}`, 'success')
       await logAudit(`Update invoice status to ${newStatus}`, 'invoices', id)
     } catch (err: any) {
-      showToast('Erreur: ' + err.message, 'error')
+      showToast('Erreur: ' + toUserMessage(err), 'error')
     }
   }
 

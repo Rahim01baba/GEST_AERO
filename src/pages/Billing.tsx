@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth'
 import { useToast } from '../components/Toast'
 import { formatXOF } from '../lib/billing'
 import { logger } from '../lib/logger'
+import { toUserMessage } from '../lib/errorHandler'
 
 export function Billing() {
   const { user, can, getAssignedAirportId } = useAuth()
@@ -82,10 +83,10 @@ export function Billing() {
       setInvoices(data || [])
     } catch (err: any) {
       logger.error('Error loading invoices', { error: err })
-      const errorMessage = err.message || 'Erreur inconnue'
+      const errorMessage = toUserMessage(err) || 'Erreur inconnue'
       if (err.code === '42501') {
         setError('Accès refusé (RLS). Vérifiez vos permissions.')
-      } else if (err.message?.includes('JWT')) {
+      } else if (toUserMessage(err)?.includes('JWT')) {
         setError('Session expirée. Reconnectez-vous.')
       } else {
         setError(`Erreur: ${errorMessage}`)
@@ -187,7 +188,7 @@ export function Billing() {
       navigate(`/billing/${invoice.id}`)
     } catch (err: any) {
       logger.error('Error creating invoice', { error: err })
-      showToast(err.message || 'Erreur création facture', 'error')
+      showToast(toUserMessage(err) || 'Erreur création facture', 'error')
     } finally {
       setCreatingInvoices(prev => {
         const next = new Set(prev)

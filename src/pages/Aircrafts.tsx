@@ -4,6 +4,7 @@ import { Layout } from '../components/Layout'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/Toast'
 import { logger } from '../lib/logger'
+import { toUserMessage } from '../lib/errorHandler'
 
 interface Aircraft {
   id: string
@@ -64,10 +65,10 @@ export function Aircrafts() {
       setAircrafts(data || [])
     } catch (err: any) {
       logger.error('Error loading aircrafts', { error: err })
-      const errorMessage = err.message || 'Erreur inconnue'
+      const errorMessage = toUserMessage(err) || 'Erreur inconnue'
       if (err.code === '42501') {
         setError('Accès refusé (RLS). Vérifiez vos permissions.')
-      } else if (err.message?.includes('JWT')) {
+      } else if (toUserMessage(err)?.includes('JWT')) {
         setError('Session expirée. Reconnectez-vous.')
       } else {
         setError(`Erreur: ${errorMessage}`)
@@ -92,7 +93,7 @@ export function Aircrafts() {
       showToast('Avion supprimé', 'success')
       loadAircrafts()
     } catch (err: any) {
-      showToast('Erreur: ' + err.message, 'error')
+      showToast('Erreur: ' + toUserMessage(err), 'error')
     }
   }
 

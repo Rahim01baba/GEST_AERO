@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
+import type { AuthError } from '@supabase/supabase-js'
 import { supabase, User } from './supabase'
 import { getUserRole, can, getAirportIdForUser, canViewAllAirports, UserRole, Action } from './permissions'
 
@@ -6,7 +7,7 @@ interface AuthContextType {
   user: User | null
   userRole: UserRole | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<{ error: any }>
+  signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>
   signOut: () => Promise<void>
   can: (action: Action) => boolean
   canViewAllAirports: () => boolean

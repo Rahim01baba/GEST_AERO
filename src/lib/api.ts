@@ -16,7 +16,7 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 async function callEdgeFunction<T>(
   functionName: string,
-  payload: any,
+  payload: unknown,
   method: 'POST' | 'PUT' = 'POST'
 ): Promise<T> {
   try {
@@ -205,7 +205,18 @@ export const api = {
       throw AppError.notFound('Billing rates', { airportId: request.airport_id });
     }
 
-    const lineItems = movements.map((movement: any) => {
+    type MovementWithAircraft = {
+      id: string;
+      mtow_kg?: number | null;
+      movement_type: string;
+      registration: string;
+      traffic_type?: string | null;
+      pax_arr?: number | null;
+      connecting_pax?: number | null;
+      aircrafts?: { mtow_kg?: number | null } | null;
+    };
+
+    const lineItems = (movements as MovementWithAircraft[]).map((movement) => {
       const mtow = movement.mtow_kg || movement.aircrafts?.mtow_kg || 0;
       const mtowTonnes = mtow / 1000;
       const isInternational = movement.traffic_type === 'INT';
