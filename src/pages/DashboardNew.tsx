@@ -70,8 +70,15 @@ export function DashboardNew() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Filtres
-  const [filters, setFilters] = useState<DashboardFilters>(() => buildDashboardFiltersFromUrl(searchParams));
+  // Filtres - applique airport_id de l'utilisateur par défaut si non spécifié
+  const [filters, setFilters] = useState<DashboardFilters>(() => {
+    const urlFilters = buildDashboardFiltersFromUrl(searchParams);
+    // Si pas d'airport_id dans URL et user a un airport, l'appliquer
+    if (!urlFilters.airport_id && user?.airport_id) {
+      urlFilters.airport_id = user.airport_id;
+    }
+    return urlFilters;
+  });
   const [airports, setAirports] = useState<Airport[]>([]);
   const [airlines, setAirlines] = useState<Airline[]>([]);
 
@@ -102,10 +109,20 @@ export function DashboardNew() {
     loadReferentials();
   }, []);
 
+  // Debug mode
+  const [debugMode, setDebugMode] = useState(false);
+
   // Charger données quand filtres changent
   useEffect(() => {
     loadDashboardData();
   }, [filters, destinationsMetric, destinationsDirection]);
+
+  // Enable debug logging
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as unknown as { __DEBUG_DASHBOARD?: boolean }).__DEBUG_DASHBOARD = debugMode;
+    }
+  }, [debugMode]);
 
   // Synchroniser filtres avec URL
   const handleFiltersChange = (newFilters: DashboardFilters) => {
@@ -145,6 +162,18 @@ export function DashboardNew() {
     setLoading(true);
     setError(null);
 
+    // Debug logging
+    if (debugMode) {
+      console.log('[Dashboard] Loading data with filters:', {
+        airport_id: filters.airport_id || '(tous)',
+        date_from: filters.date_from,
+        date_to: filters.date_to,
+        ad: filters.ad,
+        airline_code: filters.airline_code || '(toutes)',
+        invoice_status: filters.invoice_status
+      });
+    }
+
     try {
       const [
         movements,
@@ -166,6 +195,19 @@ export function DashboardNew() {
         getTopOverdueInvoices(filters, 10)
       ]);
 
+      // Debug logging results
+      if (debugMode) {
+        console.log('[Dashboard] Data loaded:', {
+          movements: movements.total,
+          arrivals: movements.arrivals,
+          departures: movements.departures,
+          billing: billing.billedTotal,
+          parking: `${parking.occupied}/${parking.capacity}`,
+          trafficDays: traffic.length,
+          topDestinations: destinations.length
+        });
+      }
+
       setMovementsStats(movements);
       setBillingStats(billing);
       setParkingStats(parking);
@@ -177,7 +219,7 @@ export function DashboardNew() {
     } catch (err: unknown) {
       const msg = toUserMessage(err);
       setError(msg);
-      logger.error('Error loading dashboard data', { error: err });
+      logger.error('Error loading dashboard data', { error: err, filters });
     } finally {
       setLoading(false);
     }
@@ -223,14 +265,98 @@ export function DashboardNew() {
     <Layout>
       <div style={{ maxWidth: '1800px', margin: '0 auto', padding: '20px' }}>
         {/* Header */}
-        <div style={{ marginBottom: '24px' }}>
-          <h1 style={{ fontSize: '32px', fontWeight: 700, color: '#1a1a1a', margin: '0 0 8px 0' }}>
-            Dashboard Opérationnel
-          </h1>
-          <p style={{ fontSize: '15px', color: '#6b7280', margin: 0 }}>
-            Vue d'ensemble des opérations, du trafic et de la facturation
-          </p>
+        <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h1 style={{ fontSize: '32px', fontWeight: 700, color: '#1a1a1a', margin: '0 0 8px 0' }}>
+              Dashboard Opérationnel
+            </h1>
+            <p style={{ fontSize: '15px', color: '#6b7280', margin: 0 }}>
+              Vue d'ensemble des opérations, du trafic et de la facturation
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              onClick={() => setDebugMode(!debugMode)}
+              style={{
+                padding: '8px 16px',
+                fontSize: '13px',
+                fontWeight: 600,
+                borderRadius: '6px',
+                border: '1px solid #d1d5db',
+                backgroundColor: debugMode ? '#3b82f6' : 'white',
+                color: debugMode ? 'white' : '#374151',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {debugMode ? '🐛 Debug ON' : '🐛 Debug'}
+            </button>
+            <button
+              onClick={loadDashboardData}
+              disabled={loading}
+              style={{
+                padding: '8px 16px',
+                fontSize: '13px',
+                fontWeight: 600,
+                borderRadius: '6px',
+                border: 'none',
+                backgroundColor: '#10b981',
+                color: 'white',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.5 : 1,
+                transition: 'all 0.2s ease'
+              }}
+            >
+              🔄 Rafraîchir
+            </button>
+          </div>
         </div>
+
+        {/* Debug Panel */}
+        {debugMode && (
+          <div
+            style={{
+              backgroundColor: '#1e293b',
+              color: '#e2e8f0',
+              borderRadius: '8px',
+              padding: '16px',
+              marginBottom: '24px',
+              fontFamily: 'monospace',
+              fontSize: '12px',
+              border: '2px solid #3b82f6'
+            }}
+          >
+            <div style={{ fontWeight: 700, marginBottom: '12px', color: '#3b82f6' }}>
+              📊 DEBUG PANEL
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+              <div>
+                <strong>Aéroport:</strong> {filters.airport_id || '(tous)'}
+              </div>
+              <div>
+                <strong>Période:</strong> {filters.preset || 'CUSTOM'}
+              </div>
+              <div>
+                <strong>Date From (UTC):</strong> {filters.date_from}
+              </div>
+              <div>
+                <strong>Date To (UTC):</strong> {filters.date_to}
+              </div>
+              <div>
+                <strong>A/D:</strong> {filters.ad}
+              </div>
+              <div>
+                <strong>Compagnie:</strong> {filters.airline_code || '(toutes)'}
+              </div>
+              <div>
+                <strong>Statut Facture:</strong> {filters.invoice_status}
+              </div>
+              <div>
+                <strong>Mouvements chargés:</strong> {movementsStats?.total || 0}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Filtres */}
         <FilterBar

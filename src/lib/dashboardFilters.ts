@@ -34,6 +34,7 @@ export interface UrlFiltersParams extends Omit<DashboardFilters, 'date_from' | '
 
 /**
  * Construit les filtres dashboard depuis les query params URL
+ * CORRIGÉ: Gère correctement les timezones en forçant les dates locales
  */
 export function buildDashboardFiltersFromUrl(searchParams: URLSearchParams): DashboardFilters {
   const today = new Date();
@@ -59,18 +60,40 @@ export function buildDashboardFiltersFromUrl(searchParams: URLSearchParams): Das
     case 'CUSTOM':
       const customFrom = searchParams.get('date_from');
       const customTo = searchParams.get('date_to');
-      dateFrom = customFrom ? new Date(customFrom) : startOfMonth(today);
-      dateTo = customTo ? new Date(customTo) : endOfMonth(today);
+      if (customFrom && customTo) {
+        // Parse les dates en local (pas UTC) en ajoutant l'heure
+        dateFrom = new Date(customFrom + 'T00:00:00');
+        dateTo = new Date(customTo + 'T23:59:59');
+      } else {
+        dateFrom = startOfMonth(today);
+        dateTo = endOfMonth(today);
+      }
       break;
     default:
       dateFrom = startOfMonth(today);
       dateTo = endOfMonth(today);
   }
 
+  // Conversion en UTC pour requêtes Supabase
+  // Important: on convertit les dates locales en ISO UTC
+  const date_from_utc = dateFrom.toISOString();
+  const date_to_utc = dateTo.toISOString();
+
+  // Debug logging (production safe)
+  if (typeof window !== 'undefined' && (window as unknown as { __DEBUG_DASHBOARD?: boolean }).__DEBUG_DASHBOARD) {
+    console.log('[Dashboard Filters]', {
+      preset,
+      dateFromLocal: format(dateFrom, 'yyyy-MM-dd HH:mm:ss'),
+      dateToLocal: format(dateTo, 'yyyy-MM-dd HH:mm:ss'),
+      dateFromUTC: date_from_utc,
+      dateToUTC: date_to_utc
+    });
+  }
+
   return {
     airport_id: searchParams.get('airport_id') || undefined,
-    date_from: dateFrom.toISOString(),
-    date_to: dateTo.toISOString(),
+    date_from: date_from_utc,
+    date_to: date_to_utc,
     ad: (searchParams.get('ad') as MovementDirection) || 'ALL',
     airline_code: searchParams.get('airline_code') || undefined,
     invoice_status: (searchParams.get('invoice_status') as InvoiceStatus) || 'ALL',

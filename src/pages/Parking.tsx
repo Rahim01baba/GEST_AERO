@@ -4,25 +4,17 @@ import { supabase, Stand, logAudit } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/Toast'
 import { getStandGroupBadge } from '../lib/standUtils'
-
-interface Movement {
-  id: string
-  flight_number: string
-  flight_no_arr: string | null
-  flight_no_dep: string | null
-  aircraft_type: string
-  registration: string
-  movement_type: string
-  scheduled_time: string
-  actual_time: string | null
-  status: string
-  stand_id: string
-  rotation_id: string | null
-}
+import {
+  buildParkingSlots,
+  detectConflicts,
+  slotToHours,
+  type Movement,
+  type ParkingSlot
+} from '../lib/parkingSlots'
 
 interface StandOccupancy {
   stand: Stand
-  movements: Movement[]
+  slots: ParkingSlot[]
   groupConflicts: Array<{ start: number; end: number; reason: string }>
 }
 
@@ -91,78 +83,40 @@ export function Parking() {
 
     const { data: movementsData } = await movementsQuery
 
-    const rotationMap = new Map<string, any>()
-    movementsData?.forEach((movement: any) => {
-      if (movement.rotation_id) {
-        if (!rotationMap.has(movement.rotation_id)) {
-          rotationMap.set(movement.rotation_id, { arr: null, dep: null })
-        }
-        const rotation = rotationMap.get(movement.rotation_id)!
-        if (movement.movement_type === 'ARR') {
-          rotation.arr = movement
-        } else {
-          rotation.dep = movement
-        }
+    // Construire les slots regroupés par rotation
+    const allMovements = (movementsData || []) as Movement[]
+    let allSlots = buildParkingSlots(allMovements, selectedDate)
+
+    // Détecter les conflits (chevauchements sur même stand)
+    allSlots = detectConflicts(allSlots)
+
+    // Grouper slots par stand
+    const slotsMap = new Map<string, ParkingSlot[]>()
+    allSlots.forEach((slot) => {
+      if (!slotsMap.has(slot.stand_id)) {
+        slotsMap.set(slot.stand_id, [])
       }
+      slotsMap.get(slot.stand_id)!.push(slot)
     })
 
-    const enrichedMovements = (movementsData || []).map((movement: any) => {
-      if (movement.rotation_id) {
-        const rotation = rotationMap.get(movement.rotation_id)
-        if (rotation) {
-          return {
-            ...movement,
-            flight_no_arr: rotation.arr?.flight_no_arr || rotation.arr?.flight_number || null,
-            flight_no_dep: rotation.dep?.flight_no_dep || rotation.dep?.flight_number || null
-          }
-        }
-      }
-      return movement
-    })
-
-    const occupancyMap = new Map<string, Movement[]>()
-
-    enrichedMovements.forEach((movement: any) => {
-      if (!occupancyMap.has(movement.stand_id)) {
-        occupancyMap.set(movement.stand_id, [])
-      }
-      occupancyMap.get(movement.stand_id)!.push(movement)
-    })
-
-    const groupMovementsMap = new Map<string, Movement[]>()
-    standsData?.forEach(stand => {
-      if (stand.group_key) {
-        if (!groupMovementsMap.has(stand.group_key)) {
-          groupMovementsMap.set(stand.group_key, [])
-        }
-        const standMovements = occupancyMap.get(stand.id) || []
-        groupMovementsMap.get(stand.group_key)!.push(...standMovements)
-      }
-    })
-
+    // Construire occupancy avec gestion des group conflicts (parent/child)
     const occupancy: StandOccupancy[] = (standsData || []).map(stand => {
-      const movements = occupancyMap.get(stand.id) || []
+      const slots = slotsMap.get(stand.id) || []
       const groupConflicts: Array<{ start: number; end: number; reason: string }> = []
 
       if (stand.group_key) {
         const groupStands = standsData.filter(s => s.group_key === stand.group_key && s.id !== stand.id)
 
         groupStands.forEach(otherStand => {
-          const otherMovements = occupancyMap.get(otherStand.id) || []
+          const otherSlots = slotsMap.get(otherStand.id) || []
 
           const isConflict =
             (stand.is_group_parent && !otherStand.is_group_parent) ||
             (!stand.is_group_parent && otherStand.is_group_parent)
 
           if (isConflict) {
-            otherMovements.forEach(movement => {
-              const arrTime = new Date(movement.scheduled_time)
-              const depTime = movement.actual_time
-                ? new Date(movement.actual_time)
-                : new Date(arrTime.getTime() + 2 * 60 * 60 * 1000)
-
-              const startHour = arrTime.getHours() + arrTime.getMinutes() / 60
-              const endHour = depTime.getHours() + depTime.getMinutes() / 60
+            otherSlots.forEach(slot => {
+              const { startHour, endHour } = slotToHours(slot)
 
               groupConflicts.push({
                 start: startHour,
@@ -178,7 +132,7 @@ export function Parking() {
 
       return {
         stand,
-        movements,
+        slots,
         groupConflicts
       }
     })
@@ -310,6 +264,10 @@ export function Parking() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ width: '20px', height: '20px', backgroundColor: '#F4B084', borderRadius: '4px' }} />
             <span style={{ fontSize: '14px', fontWeight: 500 }}>🟥 Blocked</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '20px', height: '20px', backgroundColor: '#ef4444', borderRadius: '4px', border: '2px solid white', boxShadow: '0 0 0 2px #ef4444' }} />
+            <span style={{ fontSize: '14px', fontWeight: 500 }}>⚠️ Overlap Conflict</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ width: '20px', height: '20px', backgroundColor: '#FD7E14', borderRadius: '4px', opacity: 0.4, backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(255,255,255,0.5) 5px, rgba(255,255,255,0.5) 10px)' }} />
@@ -490,26 +448,43 @@ export function Parking() {
                           )
                         })}
 
-                        {!occupancy.stand.is_blocked && occupancy.movements.map(movement => {
-                          const arrTime = new Date(movement.scheduled_time)
-                          const depTime = movement.actual_time
-                            ? new Date(movement.actual_time)
-                            : new Date(arrTime.getTime() + 2 * 60 * 60 * 1000)
-
-                          const startHour = arrTime.getHours() + arrTime.getMinutes() / 60
-                          const endHour = depTime.getHours() + depTime.getMinutes() / 60
-                          const duration = endHour - startHour
+                        {!occupancy.stand.is_blocked && occupancy.slots.map(slot => {
+                          const { startHour, duration } = slotToHours(slot)
 
                           const left = (startHour / 24) * 100
                           const width = (duration / 24) * 100
 
-                          const isOccupied = movement.status === 'Posé' || movement.status === 'Arrived'
-                          const bgColor = isOccupied ? '#A8D08D' : '#9DC3E6'
+                          // Déterminer la couleur selon le statut
+                          const hasArrived = slot.arrival && (slot.arrival.status === 'Posé' || slot.arrival.status === 'Arrived')
+                          const hasDeparted = slot.departure && (slot.departure.status === 'Departed')
+
+                          let bgColor = '#9DC3E6' // Bleu par défaut (réservé/prévu)
+                          if (hasDeparted) {
+                            bgColor = '#d1d5db' // Gris (déjà parti)
+                          } else if (hasArrived) {
+                            bgColor = '#A8D08D' // Vert (occupé)
+                          }
+
+                          // Couleur conflit
+                          if (slot.has_conflict) {
+                            bgColor = '#ef4444' // Rouge pour conflit
+                          }
+
+                          // Tooltip détails
+                          const arrInfo = slot.arrival
+                            ? `ARR: ${slot.arrival.flight_number} ${slot.arrival.scheduled_time ? new Date(slot.arrival.scheduled_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''}`
+                            : ''
+                          const depInfo = slot.departure
+                            ? `DEP: ${slot.departure.flight_number} ${slot.departure.scheduled_time ? new Date(slot.departure.scheduled_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''}`
+                            : ''
+                          const registration = slot.arrival?.registration || slot.departure?.registration || ''
+
+                          const tooltipText = `${slot.label}\n${registration}\n${arrInfo}${arrInfo && depInfo ? '\n' : ''}${depInfo}\n${slot.start_time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} → ${slot.end_time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}${slot.has_conflict ? `\n⚠️ CONFLIT: ${slot.conflict_reason}` : ''}`
 
                           return (
                             <div
-                              key={movement.id}
-                              title={`${movement.flight_number} - ${movement.aircraft_type}\n${movement.registration}\n${arrTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} → ${depTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}\nStatus: ${movement.status}`}
+                              key={slot.id}
+                              title={tooltipText}
                               style={{
                                 position: 'absolute',
                                 left: `${left}%`,
@@ -525,17 +500,18 @@ export function Parking() {
                                 color: 'white',
                                 fontWeight: 700,
                                 fontSize: '13px',
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                                boxShadow: slot.has_conflict ? '0 0 0 3px #ef4444, 0 2px 4px rgba(0,0,0,0.15)' : '0 2px 4px rgba(0,0,0,0.15)',
                                 cursor: 'pointer',
-                                border: '2px solid rgba(255,255,255,0.3)',
+                                border: slot.has_conflict ? '2px solid white' : '2px solid rgba(255,255,255,0.3)',
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
                                 whiteSpace: 'nowrap',
                                 padding: '0 8px',
-                                zIndex: 3
+                                zIndex: slot.has_conflict ? 10 : 3
                               }}
                             >
-                              {movement.flight_no_arr || ''}{movement.flight_no_arr && movement.flight_no_dep ? '/' : ''}{movement.flight_no_dep || ''} {movement.aircraft_type}
+                              {slot.has_conflict && '⚠️ '}
+                              {slot.label}
                             </div>
                           )
                         })}
@@ -563,9 +539,21 @@ export function Parking() {
           marginTop: '16px',
           fontSize: '13px',
           color: '#6b7280',
-          textAlign: 'right'
+          textAlign: 'right',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
         }}>
-          {standOccupancy.length} stand(s) • {standOccupancy.reduce((sum, occ) => sum + occ.movements.length, 0)} mouvement(s)
+          <div>
+            {standOccupancy.reduce((sum, occ) => sum + occ.slots.filter(s => s.has_conflict).length, 0) > 0 && (
+              <span style={{ color: '#ef4444', fontWeight: 600 }}>
+                ⚠️ {standOccupancy.reduce((sum, occ) => sum + occ.slots.filter(s => s.has_conflict).length, 0)} conflit(s) détecté(s)
+              </span>
+            )}
+          </div>
+          <div>
+            {standOccupancy.length} stand(s) • {standOccupancy.reduce((sum, occ) => sum + occ.slots.length, 0)} rotation(s)
+          </div>
         </div>
       </div>
       {ToastComponent}
