@@ -208,20 +208,23 @@ export async function getTrafficTimeseries(filters: DashboardFilters): Promise<T
 
 /**
  * Statistiques de facturation
+ * CORRIGÉ: Utilise le schéma réel (total_xof, status, created_at)
  */
 export async function getBillingStats(filters: DashboardFilters): Promise<BillingStats> {
+  const PAYMENT_TERMS_DAYS = 30; // Proxy pour due_date qui n'existe pas
+
   let query = supabase
     .from('invoices')
-    .select('total_amount, paid_amount, status, issue_date, due_date');
+    .select('id, total_xof, status, created_at, document_type');
 
   if (filters.airport_id) {
     query = query.eq('airport_id', filters.airport_id);
   }
 
-  // Filtrer par dates (issue_date dans la période)
+  // Filtrer par dates (created_at dans la période)
   query = query
-    .gte('issue_date', filters.date_from)
-    .lte('issue_date', filters.date_to);
+    .gte('created_at', filters.date_from)
+    .lte('created_at', filters.date_to);
 
   if (filters.invoice_status !== 'ALL') {
     query = query.eq('status', filters.invoice_status);
@@ -231,27 +234,42 @@ export async function getBillingStats(filters: DashboardFilters): Promise<Billin
 
   if (error) throw error;
 
-  const invoices = data || [];
+  type InvoiceData = {
+    id: string;
+    total_xof: number | null;
+    status: string;
+    created_at: string;
+    document_type: string;
+  };
 
-  const billedTotal = invoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-  const collectedTotal = invoices.reduce((sum, inv) => sum + (inv.paid_amount || 0), 0);
+  const invoices = (data as InvoiceData[]) || [];
+
+  // Facturé = somme des factures INVOICE (pas PROFORMA)
+  const billedTotal = invoices
+    .filter((inv) => inv.document_type === 'INVOICE')
+    .reduce((sum, inv) => sum + (inv.total_xof || 0), 0);
+
+  // Encaissé = somme des factures status='PAID'
+  const collectedTotal = invoices
+    .filter((inv) => inv.status === 'PAID')
+    .reduce((sum, inv) => sum + (inv.total_xof || 0), 0);
+
   const recoveryRate = billedTotal > 0 ? (collectedTotal / billedTotal) * 100 : 0;
 
-  // Impayés (status OVERDUE ou due_date passée sans paiement complet)
+  // Impayés (proxy: ISSUED + created_at > 30 jours)
   const now = new Date();
+  const paymentTermsMs = PAYMENT_TERMS_DAYS * 24 * 60 * 60 * 1000;
+
   const overdueInvoices = invoices.filter((inv) => {
-    if (inv.status === 'OVERDUE') return true;
-    if (inv.status === 'ISSUED' && inv.due_date) {
-      const dueDate = new Date(inv.due_date);
-      const unpaid = (inv.total_amount || 0) - (inv.paid_amount || 0);
-      return dueDate < now && unpaid > 0;
-    }
-    return false;
+    if (inv.status !== 'ISSUED') return false;
+    const createdAt = new Date(inv.created_at);
+    const dueDate = new Date(createdAt.getTime() + paymentTermsMs);
+    return dueDate < now && (inv.total_xof || 0) > 0;
   });
 
-  const overdueTotal = overdueInvoices.reduce((sum, inv) => sum + ((inv.total_amount || 0) - (inv.paid_amount || 0)), 0);
+  const overdueTotal = overdueInvoices.reduce((sum, inv) => sum + (inv.total_xof || 0), 0);
 
-  // Aging buckets
+  // Aging buckets (basé sur ancienneté depuis created_at)
   const agingBuckets = {
     bucket_0_30: 0,
     bucket_31_60: 0,
@@ -260,14 +278,14 @@ export async function getBillingStats(filters: DashboardFilters): Promise<Billin
   };
 
   overdueInvoices.forEach((inv) => {
-    if (!inv.due_date) return;
-    const daysOverdue = Math.floor((now.getTime() - new Date(inv.due_date).getTime()) / (1000 * 60 * 60 * 24));
-    const unpaid = (inv.total_amount || 0) - (inv.paid_amount || 0);
+    const createdAt = new Date(inv.created_at);
+    const daysOld = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+    const amount = inv.total_xof || 0;
 
-    if (daysOverdue <= 30) agingBuckets.bucket_0_30 += unpaid;
-    else if (daysOverdue <= 60) agingBuckets.bucket_31_60 += unpaid;
-    else if (daysOverdue <= 90) agingBuckets.bucket_61_90 += unpaid;
-    else agingBuckets.bucket_90_plus += unpaid;
+    if (daysOld <= 30 + PAYMENT_TERMS_DAYS) agingBuckets.bucket_0_30 += amount;
+    else if (daysOld <= 60 + PAYMENT_TERMS_DAYS) agingBuckets.bucket_31_60 += amount;
+    else if (daysOld <= 90 + PAYMENT_TERMS_DAYS) agingBuckets.bucket_61_90 += amount;
+    else agingBuckets.bucket_90_plus += amount;
   });
 
   return {
@@ -281,19 +299,20 @@ export async function getBillingStats(filters: DashboardFilters): Promise<Billin
 
 /**
  * Série temporelle du CA (facturé vs encaissé)
+ * CORRIGÉ: Utilise created_at et total_xof
  */
 export async function getRevenueTimeseries(filters: DashboardFilters): Promise<RevenueDataPoint[]> {
   let query = supabase
     .from('invoices')
-    .select('issue_date, total_amount, paid_amount');
+    .select('created_at, total_xof, status, document_type');
 
   if (filters.airport_id) {
     query = query.eq('airport_id', filters.airport_id);
   }
 
   query = query
-    .gte('issue_date', filters.date_from)
-    .lte('issue_date', filters.date_to);
+    .gte('created_at', filters.date_from)
+    .lte('created_at', filters.date_to);
 
   if (filters.invoice_status !== 'ALL') {
     query = query.eq('status', filters.invoice_status);
@@ -303,14 +322,28 @@ export async function getRevenueTimeseries(filters: DashboardFilters): Promise<R
 
   if (error) throw error;
 
+  type InvoiceTimeData = {
+    created_at: string;
+    total_xof: number | null;
+    status: string;
+    document_type: string;
+  };
+
   const dailyMap = new Map<string, { billed: number; collected: number }>();
 
-  (data || []).forEach((inv) => {
-    const date = new Date(inv.issue_date).toISOString().split('T')[0];
+  ((data as InvoiceTimeData[]) || []).forEach((inv: InvoiceTimeData) => {
+    const date = new Date(inv.created_at).toISOString().split('T')[0];
     const entry = dailyMap.get(date) || { billed: 0, collected: 0 };
 
-    entry.billed += inv.total_amount || 0;
-    entry.collected += inv.paid_amount || 0;
+    // Facturé = INVOICE uniquement
+    if (inv.document_type === 'INVOICE') {
+      entry.billed += inv.total_xof || 0;
+    }
+
+    // Encaissé = status PAID
+    if (inv.status === 'PAID') {
+      entry.collected += inv.total_xof || 0;
+    }
 
     dailyMap.set(date, entry);
   });
@@ -539,12 +572,15 @@ export async function getParkingStats(filters: DashboardFilters): Promise<Parkin
 
 /**
  * Top 10 factures en retard
+ * CORRIGÉ: Utilise customer, total_xof, created_at (proxy pour due_date)
  */
 export async function getTopOverdueInvoices(filters: DashboardFilters, limit: number = 10): Promise<OverdueInvoice[]> {
+  const PAYMENT_TERMS_DAYS = 30;
+
   let query = supabase
     .from('invoices')
-    .select('id, invoice_number, customer_name, total_amount, paid_amount, due_date, status')
-    .in('status', ['ISSUED', 'OVERDUE']);
+    .select('id, invoice_number, customer, total_xof, status, created_at')
+    .eq('status', 'ISSUED');
 
   if (filters.airport_id) {
     query = query.eq('airport_id', filters.airport_id);
@@ -554,23 +590,37 @@ export async function getTopOverdueInvoices(filters: DashboardFilters, limit: nu
 
   if (error) throw error;
 
-  const now = new Date();
+  type OverdueData = {
+    id: string;
+    invoice_number: string;
+    customer: string | null;
+    total_xof: number | null;
+    status: string;
+    created_at: string;
+  };
 
-  const overdueInvoices = (data || [])
-    .filter((inv) => {
-      if (!inv.due_date) return false;
-      const unpaid = (inv.total_amount || 0) - (inv.paid_amount || 0);
-      return new Date(inv.due_date) < now && unpaid > 0;
+  const now = new Date();
+  const paymentTermsMs = PAYMENT_TERMS_DAYS * 24 * 60 * 60 * 1000;
+
+  const overdueInvoices = ((data as OverdueData[]) || [])
+    .filter((inv: OverdueData) => {
+      if ((inv.total_xof || 0) <= 0) return false;
+      const createdAt = new Date(inv.created_at);
+      const dueDate = new Date(createdAt.getTime() + paymentTermsMs);
+      return dueDate < now;
     })
-    .map((inv) => {
-      const daysOverdue = Math.floor((now.getTime() - new Date(inv.due_date).getTime()) / (1000 * 60 * 60 * 24));
+    .map((inv: OverdueData) => {
+      const createdAt = new Date(inv.created_at);
+      const dueDate = new Date(createdAt.getTime() + paymentTermsMs);
+      const daysOverdue = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+
       return {
         invoice_id: inv.id,
         invoice_number: inv.invoice_number,
-        customer_name: inv.customer_name || null,
-        amount: (inv.total_amount || 0) - (inv.paid_amount || 0),
-        due_date: inv.due_date,
-        days_overdue: daysOverdue
+        customer_name: inv.customer || null,
+        amount: inv.total_xof || 0,
+        due_date: dueDate.toISOString().split('T')[0],
+        days_overdue: Math.max(0, daysOverdue)
       };
     })
     .sort((a, b) => b.days_overdue - a.days_overdue)

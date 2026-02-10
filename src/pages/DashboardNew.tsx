@@ -175,16 +175,8 @@ export function DashboardNew() {
     }
 
     try {
-      const [
-        movements,
-        billing,
-        parking,
-        traffic,
-        revenue,
-        destinations,
-        airlines,
-        overdue
-      ] = await Promise.all([
+      // RÉSILIENT: Utilise Promise.allSettled pour ne pas tout casser si une section échoue
+      const results = await Promise.allSettled([
         getMovementsStats(filters),
         getBillingStats(filters),
         getParkingStats(filters),
@@ -195,31 +187,114 @@ export function DashboardNew() {
         getTopOverdueInvoices(filters, 10)
       ]);
 
+      const sections = [
+        'Mouvements',
+        'Facturation',
+        'Parking',
+        'Trafic (série)',
+        'Revenus (série)',
+        'Top Destinations',
+        'Top Compagnies',
+        'Factures en retard'
+      ];
+
+      const errors: string[] = [];
+
+      // Mouvements (index 0)
+      if (results[0].status === 'fulfilled') {
+        setMovementsStats(results[0].value);
+      } else {
+        logger.error('Dashboard: Mouvements failed', { error: results[0].reason });
+        errors.push(`${sections[0]}: ${toUserMessage(results[0].reason)}`);
+        setMovementsStats({ total: 0, arrivals: 0, departures: 0, onTimeRate: 0, delayAvg: 0, delayMedian: 0, cancellations: 0, mtowTotal: 0, mtowAvg: 0 });
+      }
+
+      // Facturation (index 1)
+      if (results[1].status === 'fulfilled') {
+        setBillingStats(results[1].value);
+      } else {
+        logger.error('Dashboard: Facturation failed', { error: results[1].reason });
+        errors.push(`${sections[1]}: ${toUserMessage(results[1].reason)}`);
+        setBillingStats({ billedTotal: 0, collectedTotal: 0, recoveryRate: 0, overdueTotal: 0, agingBuckets: { bucket_0_30: 0, bucket_31_60: 0, bucket_61_90: 0, bucket_90_plus: 0 } });
+      }
+
+      // Parking (index 2)
+      if (results[2].status === 'fulfilled') {
+        setParkingStats(results[2].value);
+      } else {
+        logger.error('Dashboard: Parking failed', { error: results[2].reason });
+        errors.push(`${sections[2]}: ${toUserMessage(results[2].reason)}`);
+        setParkingStats({ occupied: 0, capacity: 0, occupancyRate: 0 });
+      }
+
+      // Trafic série (index 3)
+      if (results[3].status === 'fulfilled') {
+        setTrafficData(results[3].value);
+      } else {
+        logger.error('Dashboard: Trafic série failed', { error: results[3].reason });
+        errors.push(`${sections[3]}: ${toUserMessage(results[3].reason)}`);
+        setTrafficData([]);
+      }
+
+      // Revenus série (index 4)
+      if (results[4].status === 'fulfilled') {
+        setRevenueData(results[4].value);
+      } else {
+        logger.error('Dashboard: Revenus série failed', { error: results[4].reason });
+        errors.push(`${sections[4]}: ${toUserMessage(results[4].reason)}`);
+        setRevenueData([]);
+      }
+
+      // Top Destinations (index 5)
+      if (results[5].status === 'fulfilled') {
+        setTopDestinations(results[5].value);
+      } else {
+        logger.error('Dashboard: Top Destinations failed', { error: results[5].reason });
+        errors.push(`${sections[5]}: ${toUserMessage(results[5].reason)}`);
+        setTopDestinations([]);
+      }
+
+      // Top Compagnies (index 6)
+      if (results[6].status === 'fulfilled') {
+        setTopAirlines(results[6].value);
+      } else {
+        logger.error('Dashboard: Top Compagnies failed', { error: results[6].reason });
+        errors.push(`${sections[6]}: ${toUserMessage(results[6].reason)}`);
+        setTopAirlines([]);
+      }
+
+      // Factures en retard (index 7)
+      if (results[7].status === 'fulfilled') {
+        setOverdueInvoices(results[7].value);
+      } else {
+        logger.error('Dashboard: Factures en retard failed', { error: results[7].reason });
+        errors.push(`${sections[7]}: ${toUserMessage(results[7].reason)}`);
+        setOverdueInvoices([]);
+      }
+
       // Debug logging results
       if (debugMode) {
         console.log('[Dashboard] Data loaded:', {
-          movements: movements.total,
-          arrivals: movements.arrivals,
-          departures: movements.departures,
-          billing: billing.billedTotal,
-          parking: `${parking.occupied}/${parking.capacity}`,
-          trafficDays: traffic.length,
-          topDestinations: destinations.length
+          movements: results[0].status === 'fulfilled' ? results[0].value.total : 'ERREUR',
+          arrivals: results[0].status === 'fulfilled' ? results[0].value.arrivals : 'ERREUR',
+          departures: results[0].status === 'fulfilled' ? results[0].value.departures : 'ERREUR',
+          billing: results[1].status === 'fulfilled' ? results[1].value.billedTotal : 'ERREUR',
+          parking: results[2].status === 'fulfilled' ? `${results[2].value.occupied}/${results[2].value.capacity}` : 'ERREUR',
+          trafficDays: results[3].status === 'fulfilled' ? results[3].value.length : 'ERREUR',
+          topDestinations: results[5].status === 'fulfilled' ? results[5].value.length : 'ERREUR',
+          errors: errors.length
         });
       }
 
-      setMovementsStats(movements);
-      setBillingStats(billing);
-      setParkingStats(parking);
-      setTrafficData(traffic);
-      setRevenueData(revenue);
-      setTopDestinations(destinations);
-      setTopAirlines(airlines);
-      setOverdueInvoices(overdue);
+      // Si des sections ont échoué, afficher un message d'avertissement (pas bloquant)
+      if (errors.length > 0) {
+        setError(`Certaines sections ont échoué:\n${errors.join('\n')}`);
+      }
     } catch (err: unknown) {
+      // Erreur globale critique (ne devrait pas arriver avec allSettled)
       const msg = toUserMessage(err);
-      setError(msg);
-      logger.error('Error loading dashboard data', { error: err, filters });
+      setError(`Erreur critique: ${msg}`);
+      logger.error('Error loading dashboard data (critical)', { error: err, filters });
     } finally {
       setLoading(false);
     }
