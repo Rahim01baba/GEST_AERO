@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/auth'
 import { Login } from './pages/Login'
-import { Dashboard } from './pages/Dashboard'
+import { DashboardNew } from './pages/DashboardNew'
 import { Movements } from './pages/Movements'
 import { Parking } from './pages/Parking'
 import { BillingNew } from './pages/BillingNew'
@@ -44,7 +44,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/dashboard" element={<ProtectedRoute><DashboardNew /></ProtectedRoute>} />
       <Route path="/movements" element={<ProtectedRoute><Movements /></ProtectedRoute>} />
       <Route path="/parking" element={<ProtectedRoute><Parking /></ProtectedRoute>} />
       <Route path="/billing" element={<ProtectedRoute><BillingNew /></ProtectedRoute>} />
