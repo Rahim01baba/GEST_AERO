@@ -216,6 +216,8 @@ export async function saveInvoice(
         origin_iata: firstMovement?.origin_iata || null,
         destination_iata: firstMovement?.destination_iata || null,
         status: (params.status || 'DRAFT').toUpperCase(),
+              document_type: model.header.documentType,
+              rotation_id: model.header.scope.rotation_id || null,
         total_xof: model.totals.grand_total_xof,
         notes
   };
