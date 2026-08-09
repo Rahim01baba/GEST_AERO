@@ -21,8 +21,8 @@ export interface User {
 export interface Airport {
   id: string
   name: string
-  icao: string
-  iata: string
+  icao_code: string
+  iata_code: string
   timezone: string
   latitude: number | null
   longitude: number | null
