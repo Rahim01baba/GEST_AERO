@@ -22,6 +22,9 @@ export type AircraftMovement = {
   is_invoiced?: boolean;
   passenger_count?: number | null;
   connecting_pax?: number | null;
+    airport_id?: string | null;
+    origin_iata?: string | null;
+    destination_iata?: string | null;
   traffic_type?: string | null;
   stand_id?: string | null;
 };
