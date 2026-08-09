@@ -32,6 +32,52 @@ function checkRateLimit(userId: string, action: string): boolean {
   return true;
 }
 
+// Bareme atterrissage (XOF/tonne), aligne sur src/lib/billing.ts::calculateLandingFee.
+// Les lignes billing_settings de type LANDING sont seedees a 0 et ne distinguent pas
+// NAT/INT (voir CORRECTIONS_COMPLETES_SYSTEME_FACTURATION.md) : on garde donc le
+// meme bareme code en dur ici plutot que de les lire.
+function calculateLandingFee(mtowKg: number, isInternational: boolean): number {
+    const mtowTonnes = Math.ceil(mtowKg / 1000);
+    let ratePerTonne = 0;
+    if (!isInternational) {
+          if (mtowKg <= 14000) ratePerTonne = 367;
+          else if (mtowKg <= 25000) ratePerTonne = 1206;
+          else if (mtowKg <= 75000) ratePerTonne = 2410;
+          else if (mtowKg <= 150000) ratePerTonne = 3055;
+          else ratePerTonne = 3873;
+    } else {
+          if (mtowKg <= 14000) ratePerTonne = 0;
+          else if (mtowKg <= 25000) ratePerTonne = 1604;
+          else if (mtowKg <= 75000) ratePerTonne = 3208;
+          else if (mtowKg <= 150000) ratePerTonne = 4504;
+          else ratePerTonne = 4230;
+    }
+    return mtowTonnes * ratePerTonne;
+}
+
+// NOTE: il n'existe pas de table billing_rates a plat dans le schema reel ; les
+// tarifs sont geres via billing_settings (fee_type/fee_subtype/value). Cette
+// fonction charge les tarifs PASSENGER actifs, avec repli sur les valeurs par
+// defaut si la table est vide/inaccessible.
+async function loadPassengerRates(adminClient: any, airportId: string | null) {
+    const rates = { national: 1000, international: 3000 };
+    try {
+          const { data } = await adminClient
+                  .from('billing_settings')
+                  .select('fee_subtype, value, airport_id')
+                  .eq('is_active', true)
+                  .eq('fee_type', 'PASSENGER');
+          for (const row of (data ?? []).filter((r: any) => !r.airport_id || r.airport_id === airportId)) {
+                  if (row.value === null || row.value === undefined) continue;
+                  if (row.fee_subtype === 'NATIONAL') rates.national = row.value;
+                  else if (row.fee_subtype === 'INTERNATIONAL') rates.international = row.value;
+          }
+    } catch {
+          return rates;
+    }
+    return rates;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -105,7 +151,7 @@ Deno.serve(async (req: Request) => {
     );
 
     const { data: movements, error: movementsError } = await adminClient
-      .from('movements')
+      .from('aircraft_movements')
       .select('*, aircrafts(*)')
       .in('id', movement_ids);
 
@@ -124,41 +170,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { data: billingRates, error: ratesError } = await adminClient
-      .from('billing_rates')
-      .select('*')
-      .eq('airport_id', airport_id)
-      .maybeSingle();
-
-    if (ratesError) {
-      console.error('Rates fetch error:', ratesError);
-      return new Response(
-        JSON.stringify({
-          ok: false,
-          error: {
-            code: 'DATABASE_ERROR',
-            message: 'Failed to fetch billing rates',
-            details: ratesError.message,
-          },
-        }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (!billingRates) {
-      return new Response(
-        JSON.stringify({
-          ok: false,
-          error: {
-            code: 'NOT_FOUND',
-            message: 'No billing rates configured for this airport',
-          },
-        }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const lineItems = movements.map((movement: any) => {
+    const passengerRates = await loadPassengerRates(adminClient, airport_id ?? null);
+    const lineItems = (movements ?? []).map((movement: any) => {
       const mtow = movement.mtow_kg || movement.aircrafts?.mtow_kg || 0;
       const mtowTonnes = mtow / 1000;
       const isInternational = movement.traffic_type === 'INT';
@@ -168,10 +181,10 @@ Deno.serve(async (req: Request) => {
       let passengerFee = 0;
 
       if (movement.movement_type === 'ARR') {
-        landingFee = mtowTonnes * (isInternational ? billingRates.landing_fee_int : billingRates.landing_fee_nat);
+        landingFee = calculateLandingFee(mtow, isInternational);
 
-        const pax = (movement.pax_arr || 0) - (movement.connecting_pax || 0);
-        passengerFee = pax * (isInternational ? billingRates.pax_fee_int : billingRates.pax_fee_nat);
+        const pax = (movement.pax_arr_full || 0) + (movement.pax_arr_half || 0) - (movement.pax_connecting || 0);
+        passengerFee = Math.max(0, pax) * (isInternational ? passengerRates.international : passengerRates.national);
       }
 
       return {
