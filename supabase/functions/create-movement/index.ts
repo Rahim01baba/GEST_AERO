@@ -103,7 +103,7 @@ Deno.serve(async (req: Request) => {
     );
 
     const { data: movement, error: insertError } = await adminClient
-      .from('movements')
+      .from('aircraft_movements')
       .insert(validation.data)
       .select()
       .single();
