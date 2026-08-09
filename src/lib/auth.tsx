@@ -102,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 getAssignedAirportId
         }}>
           {children}
-        </AuthContext.Provider
+        </AuthContext.Provider>
           )
 }
 
