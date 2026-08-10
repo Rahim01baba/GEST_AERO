@@ -47,7 +47,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
           <span style={{ fontSize: '14px', color: '#666' }}>
-            {user.full_name} ({userRole?.isAdmin ? 'ADMIN' : userRole?.scope === 'global' ? 'DG' : userRole?.airport_code || ''})
+            {user.full_name} ({userRole?.isAdmin ? 'ADMIN' : userRole?.scope === 'global' ? 'DG' : userRole?.airport_id || ''})
           </span>
           <button onClick={handleSignOut} style={buttonStyle}>
             Déconnexion

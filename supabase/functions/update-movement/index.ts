@@ -105,7 +105,7 @@ Deno.serve(async (req: Request) => {
     );
 
     const { data: movement, error: updateError } = await adminClient
-      .from('movements')
+      .from('aircraft_movements')
       .update(updateData)
       .eq('id', id)
       .select()

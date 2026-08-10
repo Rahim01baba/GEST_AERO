@@ -1,46 +1,41 @@
-import { supabase } from './supabase'
+import type { User } from './supabase'
+
+export type DbRole = 'ADMIN' | 'ATS' | 'OPS' | 'AIM' | 'FIN'
 
 export interface UserRole {
-  role: 'ats' | 'aim' | 'cmd' | 'dedc' | 'diaa' | 'admin'
-  scope: 'local' | 'global'
-  airport_code?: string
-  email: string
-  isAdmin?: boolean
+    role: DbRole
+    scope: 'local' | 'global'
+    airport_id: string | null
+    email: string
+    isAdmin: boolean
 }
 
-export function getUserRole(email: string): UserRole {
-  const localPattern = /^(ats|aim|cmd)([a-z]{3})@airport\.com$/i
-  const match = email.toLowerCase().match(localPattern)
+const VALID_ROLES: DbRole[] = ['ADMIN', 'ATS', 'OPS', 'AIM', 'FIN']
 
-  if (match) {
-    return {
-      role: match[1].toLowerCase() as 'ats' | 'aim' | 'cmd',
-      scope: 'local',
-      airport_code: match[2].toUpperCase(),
-      email: email.toLowerCase()
-    }
-  }
-
-  const globalPattern = /^(ats|aim|dedc|diaa)@airport\.com$/i
-  const globalMatch = email.toLowerCase().match(globalPattern)
-
-  if (globalMatch) {
-    return {
-      role: globalMatch[1].toLowerCase() as 'ats' | 'aim' | 'dedc' | 'diaa',
-      scope: 'global',
-      email: email.toLowerCase()
-    }
-  }
+/**
+   * Derive le role applicatif a partir du profil DB de l'utilisateur
+   * authentifie (table `users`, colonnes `role` + `airport_id`), conformement
+   * a la matrice de permissions du cahier des charges (section 6.2).
+   *
+   * Avant ce correctif, le role etait devine par une regex sur l'email
+   * (ex: atsabj@airport.com -> ATS local), ce qui ignorait totalement les
+   * roles OPS et FIN pourtant presents en base: un utilisateur OPS ou FIN
+   * heritait silencieusement des droits d'un ATS local.
+   */
+export function getUserRole(user: Pick<User, 'email' | 'role' | 'airport_id'>): UserRole {
+    const role: DbRole = VALID_ROLES.includes(user.role as DbRole) ? (user.role as DbRole) : 'ATS'
 
   return {
-    role: 'ats',
-    scope: 'local',
-    email: email.toLowerCase()
+        role,
+        scope: user.airport_id ? 'local' : 'global',
+        airport_id: user.airport_id ?? null,
+        email: user.email.toLowerCase(),
+        isAdmin: role === 'ADMIN'
   }
 }
 
 export type Action =
-  | 'view_movements'
+    | 'view_movements'
   | 'edit_movements'
   | 'create_movements'
   | 'delete_movements'
@@ -52,69 +47,49 @@ export type Action =
   | 'edit_aircraft'
   | 'edit_billing_settings'
 
+/**
+   * Regles issues de la matrice de permissions du cahier des charges (6.2):
+   * - ATS: creer/modifier/supprimer les mouvements
+   * - OPS: gestion parking/stands (lecture seule sur le reste, pas d'action
+   *   dediee dans cette enumeration pour le moment)
+   * - AIM: gestion du registre aeronefs
+   * - FIN: creation/edition des factures (corrige: c'etait AIM par erreur)
+   * - ADMIN: acces total (voir isAdmin plus haut)
+   */
 export function can(action: Action, userRole: UserRole): boolean {
-  if (userRole.isAdmin) {
-    return true
-  }
+    if (userRole.isAdmin) {
+          return true
+    }
 
-  const { role, scope } = userRole
+  const { role } = userRole
 
   switch (action) {
     case 'view_movements':
-      return true
+    case 'view_invoices':
+    case 'export_csv':
+            return true
 
     case 'edit_movements':
     case 'create_movements':
     case 'delete_movements':
-      if (scope === 'local' && role === 'ats') return true
-      return false
-
-    case 'view_invoices':
-      if (scope === 'local' && role === 'ats') return false
-      return true
+            return role === 'ATS'
 
     case 'create_invoice':
     case 'create_proforma':
-      if (role === 'aim') return true
-      return false
-
-    case 'export_csv':
-      if (scope === 'local' && role === 'ats') return false
-      return true
-
-    case 'edit_airport':
-      if (scope === 'global' && role === 'diaa') return true
-      return false
+            return role === 'FIN'
 
     case 'edit_aircraft':
-      if (scope === 'global' && role === 'aim') return true
-      return false
+            return role === 'AIM'
 
+    case 'edit_airport':
     case 'edit_billing_settings':
-      if (scope === 'global' && role === 'aim') return true
-      return false
+            return false
 
     default:
-      return false
+            return false
   }
-}
-
-export async function getAirportIdForUser(email: string): Promise<string | null> {
-  const userRole = getUserRole(email)
-
-  if (userRole.scope === 'local' && userRole.airport_code) {
-    const { data: airport } = await supabase
-      .from('airports')
-      .select('id')
-      .eq('iata_code', userRole.airport_code)
-      .maybeSingle()
-
-    return airport?.id || null
-  }
-
-  return null
 }
 
 export function canViewAllAirports(userRole: UserRole): boolean {
-  return userRole.isAdmin || userRole.scope === 'global'
+    return userRole.isAdmin
 }
