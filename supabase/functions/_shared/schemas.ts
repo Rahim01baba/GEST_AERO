@@ -21,11 +21,11 @@ const MovementStatusEnum = z.enum([
     'Departed',
     'Canceled',
     'Approche',
-    'Pose',
+    'Posé',
     'Enregistrement',
-    'Decolle',
-    'Annule',
-    'Reporte',
+    'Décollé',
+    'Annulé',
+    'Reporté',
   ]);
 
 export const CreateMovementSchema = z.object({
