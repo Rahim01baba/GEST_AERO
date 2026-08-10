@@ -152,7 +152,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: movements, error: movementsError } = await adminClient
       .from('aircraft_movements')
-      .select('*, aircrafts(*)')
+      .select('*')
       .in('id', movement_ids);
 
     if (movementsError) {
@@ -172,7 +172,7 @@ Deno.serve(async (req: Request) => {
 
     const passengerRates = await loadPassengerRates(adminClient, airport_id ?? null);
     const lineItems = (movements ?? []).map((movement: any) => {
-      const mtow = movement.mtow_kg || movement.aircrafts?.mtow_kg || 0;
+      const mtow = movement.mtow_kg || 0;
       const mtowTonnes = mtow / 1000;
       const isInternational = movement.traffic_type === 'INT';
 
