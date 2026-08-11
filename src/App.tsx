@@ -1,6 +1,9 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/auth'
+import { supabase } from './lib/supabase'
 import { Login } from './pages/Login'
+import { ResetPassword } from './pages/ResetPassword'
 import { DashboardNew } from './pages/DashboardNew'
 import { Movements } from './pages/Movements'
 import { Parking } from './pages/Parking'
@@ -40,10 +43,21 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   const { user } = useAuth()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        navigate('/reset-password', { replace: true })
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [navigate])
 
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/dashboard" element={<ProtectedRoute><DashboardNew /></ProtectedRoute>} />
       <Route path="/movements" element={<ProtectedRoute><Movements /></ProtectedRoute>} />
       <Route path="/parking" element={<ProtectedRoute><Parking /></ProtectedRoute>} />
